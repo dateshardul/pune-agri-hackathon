@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { getOzone, getCrops, type OzoneResult } from '../services/api';
 
-const DEFAULT_LAT = 18.52;
-const DEFAULT_LON = 73.85;
+interface Props {
+  lat: number;
+  lon: number;
+}
 
 const severityColors: Record<string, string> = {
   low: '#2e7d32',
@@ -11,7 +13,7 @@ const severityColors: Record<string, string> = {
   severe: '#c62828',
 };
 
-export default function OzoneSight() {
+export default function OzoneSight({ lat, lon }: Props) {
   const [crops, setCrops] = useState<string[]>([]);
   const [selectedCrop, setSelectedCrop] = useState('wheat');
   const [result, setResult] = useState<OzoneResult | null>(null);
@@ -20,14 +22,14 @@ export default function OzoneSight() {
 
   useEffect(() => {
     getCrops().then((c) => setCrops(Object.keys(c.crops))).catch(() => {});
-    loadOzone('wheat');
-  }, []);
+    loadOzone(selectedCrop);
+  }, [lat, lon]);
 
   const loadOzone = async (crop: string) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await getOzone(DEFAULT_LAT, DEFAULT_LON, crop);
+      const res = await getOzone(lat, lon, crop);
       setResult(res);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load ozone data');
@@ -47,7 +49,7 @@ export default function OzoneSight() {
   return (
     <section>
       <h2>OzoneSight</h2>
-      <p>Tropospheric ozone exposure analysis and crop yield impact for Pune</p>
+      <p>Tropospheric ozone exposure analysis and crop yield impact ({lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E)</p>
 
       <label>
         Crop:

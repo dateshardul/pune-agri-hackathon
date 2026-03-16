@@ -20,6 +20,27 @@ header p {
   font-size: 1.1rem;
 }
 
+.location-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.location-inputs {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.location-presets {
+  display: flex;
+  gap: 0.4rem;
+}
+
 main {
   display: flex;
   flex-direction: column;

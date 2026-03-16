@@ -1,35 +1,49 @@
 import { useEffect, useState } from 'react';
 import { getWeather, getSoil, runSimulation, type WeatherResponse, type SoilResponse, type SimulationResult } from '../services/api';
 
-const DEFAULT_LAT = 18.52;
-const DEFAULT_LON = 73.85;
+interface Props {
+  lat: number;
+  lon: number;
+}
 
-export default function Dashboard() {
+export default function Dashboard({ lat, lon }: Props) {
   const [weather, setWeather] = useState<WeatherResponse | null>(null);
   const [soil, setSoil] = useState<SoilResponse | null>(null);
   const [simulation, setSimulation] = useState<SimulationResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [simLoading, setSimLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   useEffect(() => {
     setLoading(true);
+    const w: string[] = [];
     Promise.allSettled([
-      getWeather(DEFAULT_LAT, DEFAULT_LON),
-      getSoil(DEFAULT_LAT, DEFAULT_LON),
+      getWeather(lat, lon),
+      getSoil(lat, lon),
     ]).then(([wResult, sResult]) => {
-      if (wResult.status === 'fulfilled') setWeather(wResult.value);
-      if (sResult.status === 'fulfilled') setSoil(sResult.value);
-      if (wResult.status === 'rejected' && sResult.status === 'rejected') {
-        setError('Failed to load data');
+      if (wResult.status === 'fulfilled') {
+        setWeather(wResult.value);
+      } else {
+        w.push('Weather data unavailable — NASA POWER may be slow');
       }
+      if (sResult.status === 'fulfilled') {
+        setSoil(sResult.value);
+      } else {
+        w.push('Soil data unavailable — SoilGrids may be down');
+      }
+      if (wResult.status === 'rejected' && sResult.status === 'rejected') {
+        setError('Both data sources failed. Check backend connectivity.');
+      }
+      setWarnings(w);
     }).finally(() => setLoading(false));
-  }, []);
+  }, [lat, lon]);
 
   const runQuickSim = async (crop: string) => {
     setSimLoading(true);
+    setError(null);
     try {
-      const res = await runSimulation({ latitude: DEFAULT_LAT, longitude: DEFAULT_LON, crop });
+      const res = await runSimulation({ latitude: lat, longitude: lon, crop });
       setSimulation(res);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Simulation failed');
@@ -38,7 +52,7 @@ export default function Dashboard() {
     }
   };
 
-  if (loading) return <div className="loading">Loading Pune farm data...</div>;
+  if (loading) return <div className="loading">Loading farm data for ({lat}, {lon})...</div>;
 
   // Find last day with actual data (not all nulls)
   const latest = weather?.data.slice().reverse().find(
@@ -48,9 +62,12 @@ export default function Dashboard() {
   return (
     <section className="dashboard">
       <h2>Farm Data Dashboard</h2>
-      <p>Location: Pune, Maharashtra ({DEFAULT_LAT}°N, {DEFAULT_LON}°E)</p>
+      <p>Location: {lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E</p>
 
-      {error && <div style={{ color: '#c62828', margin: '0.5rem 0' }}>{error}</div>}
+      {error && <div className="error" style={{ margin: '0.5rem 0', padding: '0.5rem', borderRadius: '6px', background: '#ffebee' }}>{error}</div>}
+      {warnings.map((w, i) => (
+        <div key={i} style={{ color: '#e65100', margin: '0.25rem 0', fontSize: '0.9rem' }}>{w}</div>
+      ))}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
         {/* Weather Card */}
@@ -67,7 +84,7 @@ export default function Dashboard() {
                 <tr><td>Wind Speed</td><td>{latest.wind_speed ?? '—'} m/s</td></tr>
               </tbody>
             </table>
-          ) : <p>Weather data unavailable</p>}
+          ) : <p style={{ color: '#999' }}>Weather data unavailable</p>}
           {weather && <small style={{ color: '#999' }}>{weather.data.length} days from {weather.source}</small>}
         </div>
 
@@ -75,24 +92,26 @@ export default function Dashboard() {
         <div style={{ background: '#fff', padding: '1rem', borderRadius: '8px' }}>
           <h3 style={{ marginTop: 0 }}>Soil Profile</h3>
           {soil ? (
-            <table>
-              <thead>
-                <tr><th>Depth</th><th>Clay</th><th>Sand</th><th>pH</th><th>OC</th></tr>
-              </thead>
-              <tbody>
-                {soil.layers.map((l) => (
-                  <tr key={l.depth_label}>
-                    <td>{l.depth_label}</td>
-                    <td>{l.clay ?? '—'}</td>
-                    <td>{l.sand ?? '—'}</td>
-                    <td>{l.ph ?? '—'}</td>
-                    <td>{l.organic_carbon ?? '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : <p>Soil data unavailable (SoilGrids may be down)</p>}
-          {soil && <small style={{ color: '#999' }}>Source: {soil.source}</small>}
+            <>
+              <table>
+                <thead>
+                  <tr><th>Depth</th><th>Clay</th><th>Sand</th><th>pH</th><th>OC</th></tr>
+                </thead>
+                <tbody>
+                  {soil.layers.map((l) => (
+                    <tr key={l.depth_label}>
+                      <td>{l.depth_label}</td>
+                      <td>{l.clay ?? '—'}</td>
+                      <td>{l.sand ?? '—'}</td>
+                      <td>{l.ph ?? '—'}</td>
+                      <td>{l.organic_carbon ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <small style={{ color: '#999' }}>Source: {soil.source}</small>
+            </>
+          ) : <p style={{ color: '#999' }}>Soil data unavailable</p>}
         </div>
       </div>
 

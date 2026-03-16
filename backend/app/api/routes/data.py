@@ -30,7 +30,10 @@ async def get_soil(
     lat: float = Query(..., ge=-90, le=90, description="Latitude"),
     lon: float = Query(..., ge=-180, le=180, description="Longitude"),
 ):
-    """Fetch soil properties from SoilGrids for crop modeling."""
+    """Fetch soil properties from SoilGrids for crop modeling.
+
+    Automatically falls back to cached data for Pune when SoilGrids is down.
+    """
     try:
         return await fetch_soil(lat, lon)
     except Exception as e:

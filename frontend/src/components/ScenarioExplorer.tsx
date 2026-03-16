@@ -4,10 +4,12 @@ import {
   type PresetScenario, type ScenarioResult,
 } from '../services/api';
 
-const DEFAULT_LAT = 18.52;
-const DEFAULT_LON = 73.85;
+interface Props {
+  lat: number;
+  lon: number;
+}
 
-export default function ScenarioExplorer() {
+export default function ScenarioExplorer({ lat, lon }: Props) {
   const [crops, setCrops] = useState<Record<string, string>>({});
   const [presets, setPresets] = useState<PresetScenario[]>([]);
   const [selectedCrop, setSelectedCrop] = useState('rice');
@@ -32,8 +34,8 @@ export default function ScenarioExplorer() {
     setError(null);
     try {
       const res = await runScenario({
-        latitude: DEFAULT_LAT,
-        longitude: DEFAULT_LON,
+        latitude: lat,
+        longitude: lon,
         crop: selectedCrop,
         temp_offset: selectedPreset.temp_offset,
         precip_multiplier: selectedPreset.precip_multiplier,
@@ -53,7 +55,7 @@ export default function ScenarioExplorer() {
   return (
     <section>
       <h2>What-If Scenario Explorer</h2>
-      <p>Compare crop yield under different climate scenarios for Pune</p>
+      <p>Compare crop yield under different climate scenarios ({lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E)</p>
 
       <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', margin: '1rem 0' }}>
         <label>

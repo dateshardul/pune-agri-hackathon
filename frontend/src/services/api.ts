@@ -169,3 +169,61 @@ export function getOzone(lat: number, lon: number, crop: string = 'wheat') {
   const params = new URLSearchParams({ lat: String(lat), lon: String(lon), crop });
   return fetchJSON<OzoneResult>(`${API_BASE}/ozone/?${params}`);
 }
+
+// --- Groundwater endpoints ---
+
+export interface AquiferInfo {
+  region_name: string;
+  aquifer_type: string;
+  category: string;
+  stage_of_extraction_pct: number;
+  current_depth_m: number;
+  pre_monsoon_depth_m: number;
+  post_monsoon_depth_m: number;
+  annual_decline_m: number;
+  aquifer_thickness_m: number;
+  recharge_rate_mm_yr: number;
+  extraction_rate_mm_yr: number;
+  specific_yield: number;
+  wells_monitored: number;
+  grace_trend_cm_yr: number;
+}
+
+export interface DepthRecord {
+  year: number;
+  depth_m: number;
+}
+
+export interface Projection {
+  year: number;
+  projected_depth_m: number;
+  pct_depleted: number;
+}
+
+export interface CropRecommendation {
+  crop: string;
+  label: string;
+  water_need_mm: number;
+  season: string;
+  drought_tolerance: string;
+  viable: boolean;
+  sustainability: string;
+  gw_needed_mm: number;
+}
+
+export interface GroundwaterResult {
+  latitude: number;
+  longitude: number;
+  aquifer: AquiferInfo;
+  historical_depths: DepthRecord[];
+  projections: Projection[];
+  years_to_critical: number | null;
+  crop_recommendations: CropRecommendation[];
+  advisory: string[];
+  source: string;
+}
+
+export function getGroundwater(lat: number, lon: number) {
+  const params = new URLSearchParams({ lat: String(lat), lon: String(lon) });
+  return fetchJSON<GroundwaterResult>(`${API_BASE}/groundwater/?${params}`);
+}

@@ -1,11 +1,16 @@
 import { useState } from 'react';
 
+interface Props {
+  lat: number;
+  lon: number;
+}
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
 
-export default function AdvisoryChat() {
+export default function AdvisoryChat({ lat, lon }: Props) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -27,7 +32,7 @@ export default function AdvisoryChat() {
       const res = await fetch('/api/advisory/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input.trim() }),
+        body: JSON.stringify({ message: input.trim(), latitude: lat, longitude: lon }),
       });
       const data = await res.json();
 
