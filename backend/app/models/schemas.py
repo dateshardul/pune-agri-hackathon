@@ -39,3 +39,25 @@ class SoilResponse(BaseModel):
     longitude: float
     source: str = "SoilGrids v2.0"
     layers: list[SoilLayer]
+
+
+# --- Simulation ---
+
+class SimulationRequest(BaseModel):
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+    crop: str = Field("wheat", description="Crop name (wheat, rice, maize, etc.)")
+    sowing_date: str | None = Field(None, description="Sowing date (YYYY-MM-DD)")
+    harvest_date: str | None = Field(None, description="Expected harvest date (YYYY-MM-DD)")
+    elevation: float = Field(500.0, description="Site elevation (m)")
+
+
+class ScenarioRequest(BaseModel):
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+    crop: str = Field("wheat")
+    sowing_date: str | None = None
+    harvest_date: str | None = None
+    temp_offset: float = Field(0.0, description="Temperature change (°C) to apply")
+    precip_multiplier: float = Field(1.0, description="Precipitation multiplier (e.g. 0.8 = 20% less rain)")
+    scenario_name: str = Field("custom", description="Scenario label")

@@ -4,9 +4,38 @@
 Hackathon project for **Pune Agriculture Hackathon 2026** — India's first international agriculture hackathon.
 Hosted at Agricultural College, Pune. Prizes: 1st place ₹25 lakh, runner-up ₹15 lakh.
 
-## Status: THEME SELECTED — PS7, PROJECT IDEAS FINALIZED
-Theme 7 selected: **Climate Resilient Digital Agriculture**
-Top project idea: **Quantum-Holographic Farm Digital Twin** (combines holographic terrain viz + DSSAT crop sim + quantum optimization + IoT sensors + Nakshatra-AI)
+## Status: DAY 1 COMPLETE — SCAFFOLD + DATA PIPELINE
+Theme 7: **Climate Resilient Digital Agriculture**
+Project: **KrishiTwin** — Holographic Farm Digital Twin
+
+### What's Built
+- **Backend** (`backend/`): FastAPI with NASA POWER weather + SoilGrids soil APIs
+- **Frontend** (`frontend/`): React-TS via Vite, Dashboard, MapView placeholder
+- **Stubs**: simulation, ozone, advisory endpoints ready for implementation
+
+### Git Workflow
+```
+master (always has a working demo)
+  └── feat/data-pipeline  ← current (backend scaffold + data APIs)
+```
+
+### Running Locally
+```bash
+# Backend
+cd backend && source venv/bin/activate && uvicorn app.main:app --reload
+# Frontend
+cd frontend && npm run dev
+```
+
+## Coordination Protocol (Holographic Core Engine)
+Another Claude instance builds the 3D engine in `~/Holographic-Digital-Twinning/`.
+- **Protocol**: `/home/shardul/coordination/hologram/agriculture_vertical/PROTOCOL.md`
+- **Our status**: `status/agri_status.md` (we update)
+- **Their status**: `status/core_status.md` (they update)
+- **Messages**: `messages/YYYYMMDD_HHMMSS_agri_<subject>.md`
+- **Contracts**: `contracts/core_api.md` (their API), `contracts/agri_requirements.md` (our needs)
+- **Import**: `"holographic-core": "file:../../Holographic-Digital-Twinning"` in frontend
+
 See `docs/research/hackathon_project_ideas.md` for full list of 10 ranked ideas.
 See `docs/decisions/hackathon_plan.md` for strategic approach notes.
 
