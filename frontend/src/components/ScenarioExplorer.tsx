@@ -9,6 +9,8 @@ interface Props {
   lon: number;
 }
 
+const cardStyle = { background: '#fff', padding: '1rem', borderRadius: '8px', textAlign: 'center' as const };
+
 export default function ScenarioExplorer({ lat, lon }: Props) {
   const [crops, setCrops] = useState<Record<string, string>>({});
   const [presets, setPresets] = useState<PresetScenario[]>([]);
@@ -54,8 +56,8 @@ export default function ScenarioExplorer({ lat, lon }: Props) {
 
   return (
     <section>
-      <h2>What-If Scenario Explorer</h2>
-      <p>Compare crop yield under different climate scenarios ({lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E)</p>
+      <h2>What-If Climate Explorer</h2>
+      <p>See how your crop yield changes under different climate futures ({lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E)</p>
 
       <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', margin: '1rem 0' }}>
         <label>
@@ -69,7 +71,7 @@ export default function ScenarioExplorer({ lat, lon }: Props) {
         </label>
 
         <label>
-          Scenario:
+          Climate Scenario:
           <select
             value={selectedPreset?.name ?? ''}
             onChange={(e) => setSelectedPreset(presets.find((p) => p.name === e.target.value) ?? null)}
@@ -91,8 +93,8 @@ export default function ScenarioExplorer({ lat, lon }: Props) {
           <strong>{selectedPreset.name}</strong>: {selectedPreset.description}
           <br />
           <small>
-            Temp: {selectedPreset.temp_offset > 0 ? '+' : ''}{selectedPreset.temp_offset}°C |
-            Rain: {Math.round(selectedPreset.precip_multiplier * 100)}% of normal
+            Temperature: {selectedPreset.temp_offset > 0 ? '+' : ''}{selectedPreset.temp_offset}°C |
+            Rainfall: {Math.round(selectedPreset.precip_multiplier * 100)}% of normal
           </small>
         </div>
       )}
@@ -101,26 +103,23 @@ export default function ScenarioExplorer({ lat, lon }: Props) {
 
       {result && (
         <div>
-          <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem',
-            margin: '1rem 0',
-          }}>
-            <div style={{ background: '#fff', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
-              <div style={{ fontSize: '0.85rem', color: '#666' }}>Baseline Yield</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', margin: '1rem 0' }}>
+            <div style={cardStyle}>
+              <div style={{ fontSize: '0.85rem', color: '#666' }}>Normal Yield</div>
               <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>
                 {result.comparison.baseline_yield_kg_ha.toFixed(0)}
               </div>
               <div style={{ fontSize: '0.8rem', color: '#999' }}>kg/ha</div>
             </div>
-            <div style={{ background: '#fff', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
-              <div style={{ fontSize: '0.85rem', color: '#666' }}>Scenario Yield</div>
+            <div style={cardStyle}>
+              <div style={{ fontSize: '0.85rem', color: '#666' }}>Yield Under This Scenario</div>
               <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>
                 {result.comparison.scenario_yield_kg_ha.toFixed(0)}
               </div>
               <div style={{ fontSize: '0.8rem', color: '#999' }}>kg/ha</div>
             </div>
-            <div style={{ background: '#fff', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
-              <div style={{ fontSize: '0.85rem', color: '#666' }}>Yield Change</div>
+            <div style={cardStyle}>
+              <div style={{ fontSize: '0.85rem', color: '#666' }}>Change in Yield</div>
               <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: changeColor }}>
                 {yieldChange > 0 ? '+' : ''}{yieldChange.toFixed(1)}%
               </div>
@@ -130,25 +129,25 @@ export default function ScenarioExplorer({ lat, lon }: Props) {
 
           <details>
             <summary style={{ cursor: 'pointer', marginTop: '1rem' }}>
-              Simulation Details ({result.baseline.metadata.days_simulated} days)
+              Detailed Comparison ({result.baseline.metadata.days_simulated} days simulated)
             </summary>
             <table style={{ marginTop: '0.5rem' }}>
               <thead>
-                <tr><th>Metric</th><th>Baseline</th><th>Scenario</th></tr>
+                <tr><th>Metric</th><th>Normal</th><th>This Scenario</th></tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>Max LAI</td>
+                  <td title="Peak leaf area — higher means more photosynthesis">Leaf Coverage</td>
                   <td>{(result.baseline.summary.LAIMAX as number)?.toFixed(2)}</td>
                   <td>{(result.scenario.summary.LAIMAX as number)?.toFixed(2)}</td>
                 </tr>
                 <tr>
-                  <td>Total Biomass (kg/ha)</td>
+                  <td>Total Plant Growth (kg/ha)</td>
                   <td>{(result.baseline.summary.TAGP as number)?.toFixed(0)}</td>
                   <td>{(result.scenario.summary.TAGP as number)?.toFixed(0)}</td>
                 </tr>
                 <tr>
-                  <td>Development Stage</td>
+                  <td title="0 = just sowed, 1 = flowering, 2 = mature">Growth Stage</td>
                   <td>{(result.baseline.summary.DVS as number)?.toFixed(1)}</td>
                   <td>{(result.scenario.summary.DVS as number)?.toFixed(1)}</td>
                 </tr>

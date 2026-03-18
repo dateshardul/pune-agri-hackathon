@@ -6,7 +6,6 @@ import * as THREE from 'three';
 interface Props {
   lat: number;
   lon: number;
-  onLayersReady?: (engine: Engine) => void;
 }
 
 type OverlayType = 'ndvi' | 'soil_moisture' | 'ozone_damage' | null;
@@ -22,7 +21,7 @@ interface OverlayInfo {
 
 const OVERLAYS: OverlayInfo[] = [
   {
-    label: 'NDVI',
+    label: 'Crop Health (NDVI)',
     type: 'ndvi',
     config: { colormap: { name: 'rdylgn', min: 0.2, max: 0.9 } },
     dataRange: [0.2, 0.9],
@@ -42,14 +41,21 @@ const OVERLAYS: OverlayInfo[] = [
     type: 'ozone_damage',
     config: { colormap: { name: 'hot', min: 0, max: 15 } },
     dataRange: [0, 15],
-    unit: '% yield loss',
+    unit: '% crop loss',
     gradientCSS: 'linear-gradient(to right, #000000, #e50000, #ff8c00, #ffff00, #ffffff)',
   },
 ];
 
+const containerStyle = {
+  width: '100%',
+  height: '500px',
+  borderRadius: '8px',
+  overflow: 'hidden' as const,
+  background: '#0a0a1a',
+};
+
 /**
  * Generate synthetic spatial data that looks like real satellite imagery.
- * Uses layered sin/cos at different frequencies + pseudo-random noise.
  */
 function generateSyntheticData(
   width: number,
@@ -66,22 +72,16 @@ function generateSyntheticData(
       const nx = x / width;
       const ny = y / height;
 
-      // Large-scale gradient
       let val = 0.5 + 0.2 * Math.sin(nx * 3.14 + seed) * Math.cos(ny * 2.7 + seed * 0.7);
-
-      // Medium-scale features
       val += 0.15 * Math.sin(nx * 8.5 + ny * 6.3 + seed * 1.3);
       val += 0.1 * Math.cos(nx * 12.1 - ny * 9.7 + seed * 2.1);
 
-      // Small-scale noise (pseudo-random via high-freq sin)
       const noiseX = Math.sin(x * 127.1 + y * 311.7 + seed * 43.7) * 43758.5453;
       val += 0.08 * (noiseX - Math.floor(noiseX) - 0.5);
 
-      // Another noise layer
       const noiseY = Math.sin(x * 269.5 + y * 183.3 + seed * 97.1) * 28461.3217;
       val += 0.06 * (noiseY - Math.floor(noiseY) - 0.5);
 
-      // Clamp to [0, 1] then scale to [min, max]
       val = Math.max(0, Math.min(1, val));
       data[y * width + x] = min + val * range;
     }
@@ -90,7 +90,7 @@ function generateSyntheticData(
   return data;
 }
 
-export default function MapView({ lat, lon, onLayersReady }: Props) {
+export default function MapView({ lat, lon }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<Engine | null>(null);
   const terrainRef = useRef<TerrainMesh | null>(null);
@@ -99,7 +99,18 @@ export default function MapView({ lat, lon, onLayersReady }: Props) {
   const [activeOverlay, setActiveOverlay] = useState<OverlayType>(null);
 
   useEffect(() => {
-    if (!containerRef.current || engineRef.current) return;
+    if (!containerRef.current) return;
+
+    // Dispose previous engine on lat/lon change
+    if (engineRef.current) {
+      engineRef.current.dispose();
+      engineRef.current = null;
+      terrainRef.current = null;
+    }
+
+    setStatus('loading');
+    setError(null);
+    setActiveOverlay(null);
 
     try {
       const engine = new Engine({
@@ -114,18 +125,15 @@ export default function MapView({ lat, lon, onLayersReady }: Props) {
         init(eng) {
           const loader = new DataLoader();
 
-          // Generate sample terrain (Pune-like rolling hills)
           const terrainConfig = loader.generateSampleHeightmap(256, 256);
           const terrain = new TerrainMesh(terrainConfig);
           terrainRef.current = terrain;
 
-          // Add terrain to a layer
           const terrainLayer = eng.layers.add({ name: 'Farm Terrain', visible: true });
           terrain.addTo(terrainLayer.group);
 
-          // Add sensor markers
           const sensorPositions = [
-            { pos: new THREE.Vector3(10, 8, -15), title: 'Weather Station', desc: 'Temp: 32\u00b0C | Humidity: 65%' },
+            { pos: new THREE.Vector3(10, 8, -15), title: 'Weather Station', desc: 'Temp: 32°C | Humidity: 65%' },
             { pos: new THREE.Vector3(-12, 6, 8), title: 'Soil Sensor #1', desc: 'Moisture: 42% | pH: 6.8' },
             { pos: new THREE.Vector3(18, 5, 12), title: 'Soil Sensor #2', desc: 'Moisture: 38% | pH: 7.1' },
             { pos: new THREE.Vector3(-5, 7, -20), title: 'Rain Gauge', desc: 'Last 24h: 12mm' },
@@ -136,7 +144,6 @@ export default function MapView({ lat, lon, onLayersReady }: Props) {
 
           for (const s of sensorPositions) {
             eng.annotations.addAnnotation(s.pos, s.title, s.desc);
-            // Add a small sphere marker
             const marker = new THREE.Mesh(
               new THREE.SphereGeometry(0.5, 16, 16),
               new THREE.MeshStandardMaterial({ color: 0x00ff88, emissive: 0x004422 }),
@@ -145,7 +152,6 @@ export default function MapView({ lat, lon, onLayersReady }: Props) {
             sensorLayer.group.add(marker);
           }
 
-          // Add crop zone overlay
           const cropLayer = eng.layers.add({ name: 'Crop Zones', visible: true, opacity: 0.6 });
           const zoneGeom = new THREE.CircleGeometry(15, 32);
           zoneGeom.rotateX(-Math.PI / 2);
@@ -159,7 +165,6 @@ export default function MapView({ lat, lon, onLayersReady }: Props) {
           zone.position.set(0, 0.5, 0);
           cropLayer.group.add(zone);
 
-          // Position camera for good initial view
           eng.cameraController.setPosition(new THREE.Vector3(50, 60, 70));
           eng.cameraController.lookAt(new THREE.Vector3(0, 0, 0));
         },
@@ -170,8 +175,6 @@ export default function MapView({ lat, lon, onLayersReady }: Props) {
       engine.start();
       engineRef.current = engine;
       setStatus('ready');
-
-      if (onLayersReady) onLayersReady(engine);
     } catch (e) {
       setStatus('error');
       setError(e instanceof Error ? e.message : 'Failed to initialize 3D engine');
@@ -184,7 +187,7 @@ export default function MapView({ lat, lon, onLayersReady }: Props) {
         terrainRef.current = null;
       }
     };
-  }, [onLayersReady]);
+  }, [lat, lon]);
 
   const applyOverlay = (overlayInfo: OverlayInfo) => {
     const terrain = terrainRef.current;
@@ -192,7 +195,6 @@ export default function MapView({ lat, lon, onLayersReady }: Props) {
 
     const vertexCount = terrain.getVertexCount();
     const size = Math.ceil(Math.sqrt(vertexCount));
-    // Use lat/lon as seed so different locations produce different patterns
     const seed = lat * 100 + lon;
 
     const [min, max] = overlayInfo.dataRange;
@@ -217,16 +219,7 @@ export default function MapView({ lat, lon, onLayersReady }: Props) {
 
   return (
     <div style={{ position: 'relative' }}>
-      <div
-        ref={containerRef}
-        style={{
-          width: '100%',
-          height: '500px',
-          borderRadius: '8px',
-          overflow: 'hidden',
-          background: '#0a0a1a',
-        }}
-      />
+      <div ref={containerRef} style={containerStyle} />
       {status === 'loading' && (
         <div style={{
           position: 'absolute', inset: 0, display: 'flex',
@@ -254,7 +247,7 @@ export default function MapView({ lat, lon, onLayersReady }: Props) {
             background: 'rgba(0,0,0,0.7)', color: '#fff',
             padding: '8px 12px', borderRadius: '6px', fontSize: '0.8rem',
           }}>
-            Holographic Farm Digital Twin ({lat.toFixed(2)}\u00b0N, {lon.toFixed(2)}\u00b0E) — Orbit: drag | Zoom: scroll | Pan: right-drag
+            ~1 km² terrain around ({lat.toFixed(2)}°N, {lon.toFixed(2)}°E) — Orbit: drag | Zoom: scroll | Pan: right-drag
           </div>
 
           {/* Overlay toolbar */}
@@ -262,7 +255,6 @@ export default function MapView({ lat, lon, onLayersReady }: Props) {
             position: 'absolute', bottom: '12px', right: '12px',
             display: 'flex', gap: '6px', alignItems: 'flex-end',
           }}>
-            {/* Legend (shown when an overlay is active) */}
             {activeInfo && (
               <div style={{
                 background: 'rgba(0,0,0,0.8)', color: '#fff',
@@ -283,7 +275,6 @@ export default function MapView({ lat, lon, onLayersReady }: Props) {
               </div>
             )}
 
-            {/* Buttons */}
             <div style={{
               background: 'rgba(0,0,0,0.8)',
               padding: '6px',

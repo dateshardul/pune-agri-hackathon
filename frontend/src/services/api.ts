@@ -50,6 +50,17 @@ export interface SimulationResult {
     longitude: number;
     model: string;
     days_simulated: number;
+    inputs?: {
+      weather_days: number;
+      weather_start: string;
+      weather_end: string;
+      avg_temp_c: number;
+      total_precip_mm: number;
+      avg_solar_rad_mj: number;
+      soil_source: string;
+      model_mode: string;
+      elevation_m: number;
+    };
   };
 }
 

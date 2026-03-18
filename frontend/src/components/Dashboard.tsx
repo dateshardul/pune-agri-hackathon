@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { getWeather, getSoil, runSimulation, type WeatherResponse, type SoilResponse, type SimulationResult } from '../services/api';
 
 interface Props {
   lat: number;
   lon: number;
 }
+
+const cardStyle = { background: '#fff', padding: '1rem', borderRadius: '8px' } as const;
 
 export default function Dashboard({ lat, lon }: Props) {
   const [weather, setWeather] = useState<WeatherResponse | null>(null);
@@ -14,14 +16,20 @@ export default function Dashboard({ lat, lon }: Props) {
   const [simLoading, setSimLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setLoading(true);
     const w: string[] = [];
     Promise.allSettled([
       getWeather(lat, lon),
       getSoil(lat, lon),
     ]).then(([wResult, sResult]) => {
+      if (controller.signal.aborted) return;
       if (wResult.status === 'fulfilled') {
         setWeather(wResult.value);
       } else {
@@ -36,7 +44,11 @@ export default function Dashboard({ lat, lon }: Props) {
         setError('Both data sources failed. Check backend connectivity.');
       }
       setWarnings(w);
-    }).finally(() => setLoading(false));
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoading(false);
+    });
+
+    return () => controller.abort();
   }, [lat, lon]);
 
   const runQuickSim = async (crop: string) => {
@@ -54,10 +66,11 @@ export default function Dashboard({ lat, lon }: Props) {
 
   if (loading) return <div className="loading">Loading farm data for ({lat}, {lon})...</div>;
 
-  // Find last day with actual data (not all nulls)
   const latest = weather?.data.slice().reverse().find(
     (d) => d.temperature_max !== null
   ) ?? weather?.data[weather.data.length - 1];
+
+  const meta = simulation?.metadata;
 
   return (
     <section className="dashboard">
@@ -71,15 +84,15 @@ export default function Dashboard({ lat, lon }: Props) {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
         {/* Weather Card */}
-        <div style={{ background: '#fff', padding: '1rem', borderRadius: '8px' }}>
+        <div style={cardStyle}>
           <h3 style={{ marginTop: 0 }}>Latest Weather</h3>
           {latest ? (
             <table>
               <tbody>
                 <tr><td>Date</td><td>{latest.date}</td></tr>
                 <tr><td>Temperature</td><td>{latest.temperature_max ?? '—'}°C / {latest.temperature_min ?? '—'}°C</td></tr>
-                <tr><td>Precipitation</td><td>{latest.precipitation ?? '—'} mm</td></tr>
-                <tr><td>Solar Radiation</td><td>{latest.solar_radiation ?? '—'} MJ/m²/day</td></tr>
+                <tr><td>Rainfall</td><td>{latest.precipitation ?? '—'} mm</td></tr>
+                <tr><td>Sunlight</td><td>{latest.solar_radiation ?? '—'} MJ/m²/day</td></tr>
                 <tr><td>Humidity</td><td>{latest.relative_humidity ?? '—'}%</td></tr>
                 <tr><td>Wind Speed</td><td>{latest.wind_speed ?? '—'} m/s</td></tr>
               </tbody>
@@ -89,13 +102,13 @@ export default function Dashboard({ lat, lon }: Props) {
         </div>
 
         {/* Soil Card */}
-        <div style={{ background: '#fff', padding: '1rem', borderRadius: '8px' }}>
+        <div style={cardStyle}>
           <h3 style={{ marginTop: 0 }}>Soil Profile</h3>
           {soil ? (
             <>
               <table>
                 <thead>
-                  <tr><th>Depth</th><th>Clay</th><th>Sand</th><th>pH</th><th>OC</th></tr>
+                  <tr><th>Depth</th><th>Clay</th><th>Sand</th><th>pH</th><th>Organic Carbon</th></tr>
                 </thead>
                 <tbody>
                   {soil.layers.map((l) => (
@@ -116,7 +129,7 @@ export default function Dashboard({ lat, lon }: Props) {
       </div>
 
       {/* Quick Simulation */}
-      <div style={{ marginTop: '1rem', background: '#fff', padding: '1rem', borderRadius: '8px' }}>
+      <div style={{ marginTop: '1rem', ...cardStyle }}>
         <h3 style={{ marginTop: 0 }}>Quick Crop Simulation</h3>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {['rice', 'wheat', 'maize', 'chickpea', 'cotton', 'sorghum'].map((crop) => (
@@ -127,25 +140,57 @@ export default function Dashboard({ lat, lon }: Props) {
             </button>
           ))}
         </div>
-        {simLoading && <p style={{ color: '#666', marginTop: '0.5rem' }}>Running WOFOST simulation...</p>}
+        {simLoading && <p style={{ color: '#666', marginTop: '0.5rem' }}>Running crop simulation...</p>}
         {simulation && !simLoading && (
           <div style={{ marginTop: '0.75rem' }}>
             <strong>{simulation.metadata.crop}</strong> ({simulation.metadata.variety}) —{' '}
             {simulation.metadata.days_simulated} days simulated
             <div style={{ display: 'flex', gap: '2rem', marginTop: '0.5rem' }}>
               <div>
-                <span style={{ color: '#666', fontSize: '0.85rem' }}>Yield: </span>
+                <span style={{ color: '#666', fontSize: '0.85rem' }}>Grain Harvest: </span>
                 <strong>{((simulation.summary.TWSO as number) ?? 0).toFixed(0)} kg/ha</strong>
               </div>
               <div>
-                <span style={{ color: '#666', fontSize: '0.85rem' }}>Biomass: </span>
+                <span style={{ color: '#666', fontSize: '0.85rem' }}>Total Plant Growth: </span>
                 <strong>{((simulation.summary.TAGP as number) ?? 0).toFixed(0)} kg/ha</strong>
               </div>
               <div>
-                <span style={{ color: '#666', fontSize: '0.85rem' }}>Max LAI: </span>
+                <span style={{ color: '#666', fontSize: '0.85rem' }} title="Peak leaf area — higher means more photosynthesis">Leaf Coverage: </span>
                 <strong>{((simulation.summary.LAIMAX as number) ?? 0).toFixed(2)}</strong>
               </div>
             </div>
+
+            {/* Simulation transparency — B2 */}
+            {meta && (
+              <details style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: '#555' }}>
+                <summary style={{ cursor: 'pointer', fontWeight: 600 }}>What went into this simulation?</summary>
+                <div style={{ marginTop: '0.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <div>
+                    <strong>Weather:</strong>{' '}
+                    {meta.inputs ? (
+                      <>
+                        {meta.inputs.weather_days} days
+                        ({meta.inputs.weather_start} to {meta.inputs.weather_end}),
+                        avg {meta.inputs.avg_temp_c}°C,
+                        {' '}{meta.inputs.total_precip_mm} mm total rain,
+                        {' '}{meta.inputs.avg_solar_rad_mj} MJ/m²/day sunlight
+                      </>
+                    ) : 'NASA POWER daily data'}
+                  </div>
+                  <div>
+                    <strong>Soil:</strong>{' '}
+                    {meta.inputs?.soil_source ?? 'Standard soil profile'}
+                  </div>
+                  <div>
+                    <strong>Model:</strong> {meta.model}
+                    {meta.inputs && <>, elevation {meta.inputs.elevation_m} m</>}
+                  </div>
+                  <div>
+                    <strong>Dates:</strong> Sowing {meta.sowing_date} → Harvest {meta.harvest_date}, variety {meta.variety}
+                  </div>
+                </div>
+              </details>
+            )}
           </div>
         )}
       </div>

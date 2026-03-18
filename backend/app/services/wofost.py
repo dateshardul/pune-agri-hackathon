@@ -230,6 +230,13 @@ def run_wofost(
             for k, v in s.items()
         }
 
+    # Compute weather summary for transparency
+    temps = [(w.temperature_max or 30.0) + (w.temperature_min or 20.0) for w in weather_data]
+    avg_temp = sum(t / 2.0 for t in temps) / max(len(temps), 1)
+    total_precip = sum(w.precipitation or 0.0 for w in weather_data)
+    rads = [w.solar_radiation or 15.0 for w in weather_data]
+    avg_rad = sum(rads) / max(len(rads), 1)
+
     return {
         "daily_output": daily_output,
         "summary": summary_data,
@@ -242,5 +249,16 @@ def run_wofost(
             "longitude": longitude,
             "model": "WOFOST 7.2 (Water-Limited)",
             "days_simulated": len(daily_output),
+            "inputs": {
+                "weather_days": len(weather_data),
+                "weather_start": weather_dates[0].isoformat(),
+                "weather_end": weather_dates[-1].isoformat(),
+                "avg_temp_c": round(avg_temp, 1),
+                "total_precip_mm": round(total_precip, 1),
+                "avg_solar_rad_mj": round(avg_rad, 1),
+                "soil_source": "Standard soil profile (PCSE reference)",
+                "model_mode": "Water-limited production",
+                "elevation_m": elevation,
+            },
         },
     }
