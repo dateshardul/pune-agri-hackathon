@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import data, simulation, ozone, advisory, groundwater
+from app.api.routes import data, simulation, ozone, advisory, groundwater, prediction
 
 app = FastAPI(
     title="KrishiTwin API",
@@ -22,6 +22,13 @@ app.include_router(simulation.router, prefix="/api/simulate", tags=["simulation"
 app.include_router(ozone.router, prefix="/api/ozone", tags=["ozone"])
 app.include_router(advisory.router, prefix="/api/advisory", tags=["advisory"])
 app.include_router(groundwater.router, prefix="/api/groundwater", tags=["groundwater"])
+app.include_router(prediction.router, prefix="/api/predict", tags=["prediction"])
+
+
+@app.on_event("startup")
+async def train_ml_model():
+    from app.services.ml_predictor import predictor
+    predictor.train()
 
 
 @app.get("/health")

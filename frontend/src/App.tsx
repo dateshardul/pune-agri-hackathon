@@ -4,6 +4,7 @@ import MapView from './components/MapView'
 import ScenarioExplorer from './components/ScenarioExplorer'
 import OzoneSight from './components/OzoneSight'
 import GroundwaterView from './components/GroundwaterView'
+import YieldPredictor from './components/YieldPredictor'
 import AdvisoryChat from './components/AdvisoryChat'
 import './App.css'
 
@@ -121,6 +122,7 @@ function App() {
       <main>
         <MapView lat={lat} lon={lon} />
         <Dashboard lat={lat} lon={lon} />
+        <YieldPredictor lat={lat} lon={lon} />
         <ScenarioExplorer lat={lat} lon={lon} />
         <OzoneSight lat={lat} lon={lon} />
         <GroundwaterView lat={lat} lon={lon} />

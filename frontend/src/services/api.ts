@@ -238,3 +238,48 @@ export function getGroundwater(lat: number, lon: number) {
   const params = new URLSearchParams({ lat: String(lat), lon: String(lon) });
   return fetchJSON<GroundwaterResult>(`${API_BASE}/groundwater/?${params}`);
 }
+
+// --- Multi-modal ML prediction ---
+
+export interface MLPrediction {
+  yield_kg_ha: number;
+  confidence_lower: number;
+  confidence_upper: number;
+  std_kg_ha: number;
+  model: string;
+  features_used: number;
+  training_samples: number;
+  feature_importance: FeatureImportance[];
+}
+
+export interface FeatureImportance {
+  feature: string;
+  label: string;
+  importance: number;
+  value_used: number;
+  source: string;
+}
+
+export interface PredictionComparison {
+  wofost: SimulationResult | null;
+  ml_prediction: MLPrediction;
+  comparison: {
+    wofost_yield_kg_ha: number;
+    ml_yield_kg_ha: number;
+    agreement_pct: number;
+  };
+  ozone_impact: {
+    yield_loss_percent: number;
+    severity: string;
+  };
+  data_sources: Record<string, string>;
+  extensibility_note: string;
+}
+
+export function runPrediction(params: {
+  latitude: number;
+  longitude: number;
+  crop: string;
+}) {
+  return postJSON<PredictionComparison>(`${API_BASE}/predict/`, params);
+}
