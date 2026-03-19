@@ -4,11 +4,12 @@ import { getWeather, getSoil, runSimulation, type WeatherResponse, type SoilResp
 interface Props {
   lat: number;
   lon: number;
+  onSimulationResult?: (result: SimulationResult) => void;
 }
 
 const cardStyle = { background: '#fff', padding: '1rem', borderRadius: '8px' } as const;
 
-export default function Dashboard({ lat, lon }: Props) {
+export default function Dashboard({ lat, lon, onSimulationResult }: Props) {
   const [weather, setWeather] = useState<WeatherResponse | null>(null);
   const [soil, setSoil] = useState<SoilResponse | null>(null);
   const [simulation, setSimulation] = useState<SimulationResult | null>(null);
@@ -57,6 +58,7 @@ export default function Dashboard({ lat, lon }: Props) {
     try {
       const res = await runSimulation({ latitude: lat, longitude: lon, crop });
       setSimulation(res);
+      onSimulationResult?.(res);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Simulation failed');
     } finally {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Dashboard from './components/Dashboard'
 import MapView from './components/MapView'
+import type { SimulationResult } from './services/api'
 import ScenarioExplorer from './components/ScenarioExplorer'
 import OzoneSight from './components/OzoneSight'
 import GroundwaterView from './components/GroundwaterView'
@@ -61,6 +62,8 @@ function App() {
     setLon(p.lon);
   };
 
+  const [simResult, setSimResult] = useState<SimulationResult | null>(null);
+
   const activePreset = PRESETS.find(p => p.lat === lat && p.lon === lon);
 
   return (
@@ -120,8 +123,8 @@ function App() {
         </div>
       </header>
       <main>
-        <MapView lat={lat} lon={lon} />
-        <Dashboard lat={lat} lon={lon} />
+        <MapView lat={lat} lon={lon} simulationResult={simResult} />
+        <Dashboard lat={lat} lon={lon} onSimulationResult={setSimResult} />
         <YieldPredictor lat={lat} lon={lon} />
         <ScenarioExplorer lat={lat} lon={lon} />
         <OzoneSight lat={lat} lon={lon} />

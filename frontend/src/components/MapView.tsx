@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Engine, DataLoader, TerrainMesh, type VerticalPlugin, type Annotation, type LayerEntry } from 'holographic-core';
+import {
+  Engine, DataLoader, TerrainMesh,
+  ScreenshotExporter, SimulationOverlayBuilder, TimeSeriesPlayer, GeoJSONOverlay,
+  type VerticalPlugin, type Annotation, type LayerEntry,
+} from 'holographic-core';
 import type { OverlayConfig } from 'holographic-core';
 import * as THREE from 'three';
-import { getWeather, getSoil, type WeatherResponse, type SoilResponse } from '../services/api';
+import { getWeather, getSoil, type WeatherResponse, type SoilResponse, type SimulationResult } from '../services/api';
 
 interface Props {
   lat: number;
   lon: number;
+  simulationResult?: SimulationResult | null;
 }
 
 // ── Overlay definitions ──────────────────────────────────────────────
@@ -201,16 +206,23 @@ function buildAnnotations(
 
 // ── Component ────────────────────────────────────────────────────────
 
-export default function MapView({ lat, lon }: Props) {
+export default function MapView({ lat, lon, simulationResult }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<Engine | null>(null);
   const terrainRef = useRef<TerrainMesh | null>(null);
+
+  const playerRef = useRef<TimeSeriesPlayer | null>(null);
 
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [activeOverlay, setActiveOverlay] = useState<OverlayType>(null);
   const [layers, setLayers] = useState<LayerEntry[]>([]);
   const [selectedAnnotation, setSelectedAnnotation] = useState<Annotation | null>(null);
+
+  // Simulation playback state
+  const [simPlaying, setSimPlaying] = useState(false);
+  const [simFrame, setSimFrame] = useState(0);
+  const [simTotal, setSimTotal] = useState(0);
 
   // ── Engine lifecycle (recreate on lat/lon change) ──────────────────
 
@@ -298,6 +310,34 @@ export default function MapView({ lat, lon }: Props) {
             setSelectedAnnotation(annotation);
           });
 
+          // ── Farm boundary (GeoJSON) ──
+          const boundaryLayer = eng.layers.add({ name: 'Field Boundary', visible: true });
+          const geoOverlay = new GeoJSONOverlay({
+            project: (lon_: number, lat_: number) => ({
+              x: (lon_ - lon) * 11100 * 0.2,
+              z: -(lat_ - lat) * 11100 * 0.2,
+            }),
+            elevation: 0.5,
+            style: { strokeColor: 0x22cc44, fillColor: 0x22cc44, fillOpacity: 0.2 },
+          });
+          // Synthetic rectangular field boundary around the location
+          const fieldSize = 0.003; // ~330m
+          geoOverlay.setData({
+            type: 'Feature',
+            geometry: {
+              type: 'Polygon',
+              coordinates: [[
+                [lon - fieldSize, lat - fieldSize],
+                [lon + fieldSize, lat - fieldSize],
+                [lon + fieldSize, lat + fieldSize],
+                [lon - fieldSize, lat + fieldSize],
+                [lon - fieldSize, lat - fieldSize],
+              ]],
+            },
+            properties: { name: 'Demo Field' },
+          });
+          boundaryLayer.group.add(geoOverlay.group);
+
           // ── Camera ──
           eng.cameraController.setPosition(new THREE.Vector3(50, 60, 70));
           eng.cameraController.lookAt(new THREE.Vector3(0, 0, 0));
@@ -330,6 +370,15 @@ export default function MapView({ lat, lon }: Props) {
     };
   }, [lat, lon]);
 
+  // ── Auto-play simulation when result arrives ──────────────────────
+
+  useEffect(() => {
+    if (simulationResult && terrainRef.current) {
+      startSimulation(simulationResult);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simulationResult]);
+
   // ── Overlay controls ───────────────────────────────────────────────
 
   const applyOverlay = useCallback((overlayInfo: OverlayInfo) => {
@@ -348,6 +397,61 @@ export default function MapView({ lat, lon }: Props) {
   const clearOverlay = useCallback(() => {
     terrainRef.current?.clearOverlay();
     setActiveOverlay(null);
+  }, []);
+
+  // ── Screenshot ────────────────────────────────────────────────────
+
+  const handleScreenshot = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    const exporter = new ScreenshotExporter(engine.renderer, engine.scene, engine.camera);
+    exporter.download({ filename: 'krishitwin.png', width: 1920, height: 1080 });
+  }, []);
+
+  // ── Simulation playback ───────────────────────────────────────────
+
+  const startSimulation = useCallback((result: SimulationResult) => {
+    const terrain = terrainRef.current;
+    if (!terrain) return;
+
+    // Stop any existing player
+    playerRef.current?.dispose();
+
+    const laiSeries = SimulationOverlayBuilder.extractTimeSeries(result.daily_output, 'LAI');
+    const frames = SimulationOverlayBuilder.buildFrames(laiSeries, {
+      gridWidth: 64, gridHeight: 64, spatialPattern: 'noise',
+    });
+    const player = new TimeSeriesPlayer(terrain, frames, {
+      colormap: { name: 'rdylgn', min: 0, max: 7 },
+    });
+    playerRef.current = player;
+
+    player.onFrameChange((idx: number, total: number) => {
+      setSimFrame(idx);
+      setSimTotal(total);
+    });
+
+    setSimTotal(frames.length);
+    setSimFrame(0);
+    setSimPlaying(true);
+    player.play(200);
+  }, []);
+
+  const toggleSimPlayback = useCallback(() => {
+    const player = playerRef.current;
+    if (!player) return;
+    if (simPlaying) {
+      player.pause();
+      setSimPlaying(false);
+    } else {
+      player.play(200);
+      setSimPlaying(true);
+    }
+  }, [simPlaying]);
+
+  const seekSim = useCallback((frame: number) => {
+    playerRef.current?.setFrame(frame);
+    setSimFrame(frame);
   }, []);
 
   // ── Layer toggle ───────────────────────────────────────────────────
@@ -478,6 +582,42 @@ export default function MapView({ lat, lon }: Props) {
             </div>
           )}
 
+          {/* Simulation playback controls */}
+          {simTotal > 0 && (
+            <div style={{
+              position: 'absolute', bottom: '56px', left: '12px', right: '12px',
+              background: 'rgba(0,0,0,0.85)', padding: '8px 14px',
+              borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px',
+              color: '#fff', fontSize: '0.78rem',
+            }}>
+              <button
+                onClick={toggleSimPlayback}
+                style={{
+                  background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff',
+                  padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem',
+                }}
+              >
+                {simPlaying ? '⏸' : '▶'}
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={Math.max(simTotal - 1, 0)}
+                value={simFrame}
+                onChange={(e) => seekSim(Number(e.target.value))}
+                style={{ flex: 1, accentColor: '#4caf50' }}
+              />
+              <span style={{ minWidth: '80px', textAlign: 'right' }}>
+                Day {simFrame + 1} / {simTotal}
+              </span>
+              <div style={{
+                height: '10px', width: '80px', borderRadius: '3px',
+                background: 'linear-gradient(to right, #a50026, #f46d43, #fee08b, #a6d96a, #1a9850, #006837)',
+              }} />
+              <span style={{ fontSize: '0.7rem', color: '#aaa' }}>LAI 0–7</span>
+            </div>
+          )}
+
           {/* Bottom-right: overlay toolbar + legend */}
           <div style={{
             position: 'absolute', bottom: '12px', right: '12px',
@@ -505,7 +645,7 @@ export default function MapView({ lat, lon }: Props) {
               </div>
             )}
 
-            {/* Overlay buttons */}
+            {/* Overlay buttons + screenshot */}
             <div style={{
               background: 'rgba(0,0,0,0.8)', padding: '6px',
               borderRadius: '8px', display: 'flex', gap: '4px',
@@ -536,6 +676,19 @@ export default function MapView({ lat, lon }: Props) {
                 }}
               >
                 Clear
+              </button>
+              <div style={{ width: '1px', background: 'rgba(255,255,255,0.2)', margin: '2px 2px' }} />
+              <button
+                onClick={handleScreenshot}
+                title="Download screenshot"
+                style={{
+                  padding: '6px 12px', borderRadius: '4px', border: 'none',
+                  cursor: 'pointer', fontSize: '0.78rem',
+                  background: 'rgba(255,255,255,0.15)', color: '#fff',
+                  transition: 'background 0.15s',
+                }}
+              >
+                Screenshot
               </button>
             </div>
           </div>
