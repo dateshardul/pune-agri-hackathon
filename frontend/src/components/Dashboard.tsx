@@ -140,6 +140,12 @@ export default function Dashboard({ lat, lon, onSimulationResult }: Props) {
           {weatherTab === 'forecast' && (
             forecast ? (
               <>
+                <div style={{ position: 'relative' }}>
+                <div style={{
+                  position: 'absolute', top: 0, right: 0, bottom: '4px', width: '24px',
+                  background: 'linear-gradient(to right, transparent, #fff)', pointerEvents: 'none',
+                  zIndex: 1, borderRadius: '0 8px 8px 0',
+                }} />
                 <div style={{
                   display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '4px',
                 }}>
@@ -149,9 +155,9 @@ export default function Dashboard({ lat, lon, onSimulationResult }: Props) {
                     const dateLabel = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
                     return (
                       <div key={day.date} style={{
-                        minWidth: '110px', padding: '8px 10px', borderRadius: '8px',
+                        minWidth: '90px', padding: '8px 10px', borderRadius: '8px',
                         background: '#f5f8ff', border: '1px solid #e3eaf5', textAlign: 'center',
-                        fontSize: '0.8rem', flex: '0 0 auto',
+                        fontSize: '0.8rem', flex: '0 0 auto', flexShrink: 0,
                       }}>
                         <div style={{ fontWeight: 600, marginBottom: '2px' }}>{dayLabel}</div>
                         <div style={{ fontSize: '0.72rem', color: '#888', marginBottom: '6px' }}>{dateLabel}</div>
@@ -176,6 +182,7 @@ export default function Dashboard({ lat, lon, onSimulationResult }: Props) {
                       </div>
                     );
                   })}
+                </div>
                 </div>
                 <small style={{ color: '#999', display: 'block', marginTop: '6px' }}>Source: {forecast.source}</small>
               </>

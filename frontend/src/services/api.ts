@@ -295,8 +295,10 @@ export interface ElevationData {
   source: string;
 }
 
-export function getElevation(lat: number, lon: number) {
-  return fetchJSON<ElevationData>(`${API_BASE}/elevation/dem?lat=${lat}&lon=${lon}`);
+export function getElevation(lat: number, lon: number, size?: number) {
+  const params = new URLSearchParams({ lat: String(lat), lon: String(lon) });
+  if (size) params.set('size', String(size));
+  return fetchJSON<ElevationData>(`${API_BASE}/elevation/dem?${params}`);
 }
 
 // --- Forecast ---

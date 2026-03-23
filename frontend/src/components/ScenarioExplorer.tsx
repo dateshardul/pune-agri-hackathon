@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import {
   getCrops, getPresetScenarios, runScenario,
-  type PresetScenario, type ScenarioResult,
+  type PresetScenario, type ScenarioResult, type SimulationResult,
 } from '../services/api';
 
 interface Props {
   lat: number;
   lon: number;
+  onSimulationResult?: (result: SimulationResult) => void;
 }
 
 const cardStyle = { background: '#fff', padding: '1rem', borderRadius: '8px', textAlign: 'center' as const };
 
-export default function ScenarioExplorer({ lat, lon }: Props) {
+export default function ScenarioExplorer({ lat, lon, onSimulationResult }: Props) {
   const [crops, setCrops] = useState<Record<string, string>>({});
   const [presets, setPresets] = useState<PresetScenario[]>([]);
   const [selectedCrop, setSelectedCrop] = useState('rice');
@@ -19,6 +20,7 @@ export default function ScenarioExplorer({ lat, lon }: Props) {
   const [result, setResult] = useState<ScenarioResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [terrainView, setTerrainView] = useState<'scenario' | 'baseline'>('scenario');
 
   useEffect(() => {
     Promise.all([getCrops(), getPresetScenarios()])
@@ -44,6 +46,10 @@ export default function ScenarioExplorer({ lat, lon }: Props) {
         scenario_name: selectedPreset.name,
       });
       setResult(res);
+      // Pass scenario result to 3D terrain
+      if (onSimulationResult) {
+        onSimulationResult(terrainView === 'baseline' ? res.baseline : res.scenario);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Scenario failed');
     } finally {
@@ -126,6 +132,30 @@ export default function ScenarioExplorer({ lat, lon }: Props) {
               <div style={{ fontSize: '0.8rem', color: '#999' }}>{result.scenario_name}</div>
             </div>
           </div>
+
+          {/* Terrain view toggle */}
+          {onSimulationResult && (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', margin: '0.5rem 0 1rem' }}>
+              <span style={{ fontSize: '0.85rem', color: '#555' }}>Show on terrain:</span>
+              {(['baseline', 'scenario'] as const).map((view) => (
+                <button
+                  key={view}
+                  onClick={() => {
+                    setTerrainView(view);
+                    onSimulationResult(view === 'baseline' ? result.baseline : result.scenario);
+                  }}
+                  style={{
+                    padding: '4px 12px', borderRadius: '4px', border: 'none',
+                    cursor: 'pointer', fontSize: '0.8rem',
+                    background: terrainView === view ? '#1976d2' : '#e0e0e0',
+                    color: terrainView === view ? '#fff' : '#333',
+                  }}
+                >
+                  {view === 'baseline' ? 'Baseline' : 'Scenario'}
+                </button>
+              ))}
+            </div>
+          )}
 
           <details>
             <summary style={{ cursor: 'pointer', marginTop: '1rem' }}>

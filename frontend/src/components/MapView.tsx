@@ -233,6 +233,11 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
 
   const playerRef = useRef<TimeSeriesPlayer | null>(null);
 
+  // Store simulation overlay frame sets keyed by overlay type
+  const overlayFramesRef = useRef<Record<string, { frames: Float32Array[], config: OverlayConfig }>>({});
+  // Track which overlay type the current player is showing ('lai' default, or overlay type)
+  const activeSimOverlayRef = useRef<string>('lai');
+
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [activeOverlay, setActiveOverlay] = useState<OverlayType>(null);
@@ -241,6 +246,15 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
 
   // Elevation info for display
   const [elevationRange, setElevationRange] = useState<{ min: number; max: number } | null>(null);
+
+  // Farm range selection
+  const FARM_RANGES = [
+    { label: '500m', size: 16 },
+    { label: '1 km', size: 34 },
+    { label: '2 km', size: 67 },
+    { label: '5 km', size: 167 },
+  ] as const;
+  const [farmRange, setFarmRange] = useState<number>(67); // default 2 km
 
   // Simulation playback state
   const [simPlaying, setSimPlaying] = useState(false);
@@ -270,7 +284,7 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
     const dataPromise = Promise.allSettled([
       getWeather(lat, lon),
       getSoil(lat, lon),
-      getElevation(lat, lon),
+      getElevation(lat, lon, farmRange),
     ]);
 
     try {
@@ -307,7 +321,7 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
               heightData: rawHeight,
               width: elevResult.width,
               height: elevResult.height,
-              heightScale: elevRange > 0 ? 30 / elevRange : 1,
+              heightScale: elevRange > 0 ? 8 / elevRange : 1,
             });
             elevMin = elevResult.min_elevation;
             elevMax = elevResult.max_elevation;
@@ -316,7 +330,7 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
             const seed = lat * 100 + lon;
             const heightData = generateSeededHeightmap(256, 256, seed);
             terrain = new TerrainMesh({
-              heightData, width: 256, height: 256, heightScale: 1,
+              heightData, width: 256, height: 256, heightScale: 0.3,
             });
           }
           terrainRef.current = terrain;
@@ -423,7 +437,7 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
         terrainRef.current = null;
       }
     };
-  }, [lat, lon]);
+  }, [lat, lon, farmRange]);
 
   // ── Auto-play simulation when result arrives ──────────────────────
 
@@ -436,9 +450,56 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
 
   // ── Overlay controls ───────────────────────────────────────────────
 
+  // Switch the active TimeSeriesPlayer to a different overlay's frame set
+  const switchSimOverlay = useCallback((overlayKey: string) => {
+    const terrain = terrainRef.current;
+    if (!terrain) return false;
+    const entry = overlayFramesRef.current[overlayKey];
+    if (!entry || entry.frames.length === 0) return false;
+
+    // Preserve current frame position
+    const wasPlaying = playerRef.current?.isPlaying() ?? false;
+    const currentFrame = playerRef.current?.getCurrentFrame() ?? 0;
+    playerRef.current?.dispose();
+
+    const player = new TimeSeriesPlayer(terrain, entry.frames, entry.config);
+    playerRef.current = player;
+    player.onFrameChange((idx: number, total: number) => {
+      setSimFrame(idx);
+      setSimTotal(total);
+    });
+
+    // Seek to same frame position (clamped to new frame count)
+    const targetFrame = Math.min(currentFrame, entry.frames.length - 1);
+    player.setFrame(targetFrame);
+    setSimTotal(entry.frames.length);
+    setSimFrame(targetFrame);
+
+    if (wasPlaying) {
+      player.play(200);
+      setSimPlaying(true);
+    }
+
+    activeSimOverlayRef.current = overlayKey;
+    return true;
+  }, []);
+
   const applyOverlay = useCallback((overlayInfo: OverlayInfo) => {
     const terrain = terrainRef.current;
     if (!terrain) return;
+
+    // If simulation frames exist for this overlay type, use them (animated)
+    if (overlayInfo.type && overlayFramesRef.current[overlayInfo.type]) {
+      switchSimOverlay(overlayInfo.type);
+      setActiveOverlay(overlayInfo.type);
+      return;
+    }
+
+    // Fallback: static synthetic data (no simulation running)
+    // Pause any running player first
+    playerRef.current?.pause();
+    setSimPlaying(false);
+
     const vertexCount = terrain.getVertexCount();
     const size = Math.ceil(Math.sqrt(vertexCount));
     const seed = lat * 100 + lon;
@@ -447,12 +508,18 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
       seed + (overlayInfo.type === 'ndvi' ? 0 : overlayInfo.type === 'soil_moisture' ? 1000 : 2000));
     terrain.setOverlay(data, { ...overlayInfo.config, dataWidth: size, dataHeight: size });
     setActiveOverlay(overlayInfo.type);
-  }, [lat, lon]);
+  }, [lat, lon, switchSimOverlay]);
 
   const clearOverlay = useCallback(() => {
+    // If simulation frames exist, revert to LAI view instead of clearing entirely
+    if (overlayFramesRef.current.lai) {
+      switchSimOverlay('lai');
+      setActiveOverlay(null);
+      return;
+    }
     terrainRef.current?.clearOverlay();
     setActiveOverlay(null);
-  }, []);
+  }, [switchSimOverlay]);
 
   // ── Screenshot ────────────────────────────────────────────────────
 
@@ -472,20 +539,41 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
     // Stop any existing player
     playerRef.current?.dispose();
 
-    // Our WOFOST output uses 'date' not 'day' as the time field
+    const gridOpts = { gridWidth: 64, gridHeight: 64, spatialPattern: 'noise' as const };
+
+    // Build frame sets for all available overlays
     const laiSeries = SimulationOverlayBuilder.extractTimeSeries(result.daily_output, 'LAI', 'date');
-    if (laiSeries.length === 0) return; // no LAI data (e.g., crop hasn't emerged)
+    const tagpSeries = SimulationOverlayBuilder.extractTimeSeries(result.daily_output, 'TAGP', 'date');
+    const smSeries = SimulationOverlayBuilder.extractTimeSeries(result.daily_output, 'SM', 'date');
 
-    const frames = SimulationOverlayBuilder.buildFrames(laiSeries, {
-      gridWidth: 64, gridHeight: 64, spatialPattern: 'noise',
-    });
-    if (frames.length === 0) return;
+    if (laiSeries.length === 0) return;
 
-    const player = new TimeSeriesPlayer(terrain, frames, {
-      colormap: { name: 'rdylgn', min: 0, max: 7 },
-      dataWidth: 64,
-      dataHeight: 64,
-    });
+    const laiFrames = SimulationOverlayBuilder.buildFrames(laiSeries, gridOpts);
+    const laiConfig: OverlayConfig = { colormap: { name: 'rdylgn', min: 0, max: 7 }, dataWidth: 64, dataHeight: 64 };
+
+    // Store all frame sets
+    overlayFramesRef.current = {
+      lai: { frames: laiFrames, config: laiConfig },
+    };
+
+    if (tagpSeries.length > 0) {
+      overlayFramesRef.current.ndvi = {
+        frames: SimulationOverlayBuilder.buildFrames(tagpSeries, gridOpts),
+        config: { colormap: { name: 'rdylgn', min: 0, max: 8000 }, dataWidth: 64, dataHeight: 64 },
+      };
+    }
+    if (smSeries.length > 0) {
+      overlayFramesRef.current.soil_moisture = {
+        frames: SimulationOverlayBuilder.buildFrames(smSeries, gridOpts),
+        config: { colormap: { name: 'cool', min: 0, max: 0.5 }, dataWidth: 64, dataHeight: 64 },
+      };
+    }
+
+    // Start with LAI overlay by default
+    activeSimOverlayRef.current = 'lai';
+    if (laiFrames.length === 0) return;
+
+    const player = new TimeSeriesPlayer(terrain, laiFrames, laiConfig);
     playerRef.current = player;
 
     player.onFrameChange((idx: number, total: number) => {
@@ -493,7 +581,8 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
       setSimTotal(total);
     });
 
-    setSimTotal(frames.length);
+    setActiveOverlay(null);
+    setSimTotal(laiFrames.length);
     setSimFrame(0);
     setSimPlaying(true);
     player.play(200);
@@ -560,9 +649,24 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
             background: 'rgba(0,0,0,0.7)', color: '#fff',
             padding: '8px 12px', borderRadius: '6px', fontSize: '0.8rem',
           }}>
-            ~1 km² terrain around ({lat.toFixed(2)}°N, {lon.toFixed(2)}°E)
-            {elevationRange && ` — Elevation: ${Math.round(elevationRange.min)}–${Math.round(elevationRange.max)}m`}
-            <br />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+              <select
+                value={farmRange}
+                onChange={(e) => setFarmRange(Number(e.target.value))}
+                style={{
+                  background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)',
+                  borderRadius: '4px', padding: '2px 4px', fontSize: '0.78rem', cursor: 'pointer',
+                }}
+              >
+                {FARM_RANGES.map((r) => (
+                  <option key={r.size} value={r.size} style={{ background: '#222', color: '#fff' }}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+              <span>terrain around ({lat.toFixed(2)}°N, {lon.toFixed(2)}°E)</span>
+            </div>
+            {elevationRange && <div>Elevation: {Math.round(elevationRange.min)}–{Math.round(elevationRange.max)}m</div>}
             <span style={{ fontSize: '0.7rem', color: '#aaa' }}>
               Orbit: drag | Zoom: scroll | Pan: right-drag | Click markers for details
             </span>
@@ -675,9 +779,15 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
               </span>
               <div style={{
                 height: '10px', width: '80px', borderRadius: '3px',
-                background: 'linear-gradient(to right, #a50026, #f46d43, #fee08b, #a6d96a, #1a9850, #006837)',
+                background: activeOverlay
+                  ? (OVERLAYS.find(o => o.type === activeOverlay)?.gradientCSS ?? 'linear-gradient(to right, #a50026, #f46d43, #fee08b, #a6d96a, #1a9850, #006837)')
+                  : 'linear-gradient(to right, #a50026, #f46d43, #fee08b, #a6d96a, #1a9850, #006837)',
               }} />
-              <span style={{ fontSize: '0.7rem', color: '#aaa' }}>LAI 0–7</span>
+              <span style={{ fontSize: '0.7rem', color: '#aaa' }}>
+                {activeOverlay === 'ndvi' ? 'Biomass (TAGP)'
+                  : activeOverlay === 'soil_moisture' ? 'SM 0–0.5'
+                  : 'LAI 0–7'}
+              </span>
             </div>
           )}
 
@@ -703,7 +813,9 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
                   <span>{activeInfo.dataRange[1]}{activeInfo.unit ? ` ${activeInfo.unit}` : ''}</span>
                 </div>
                 <div style={{ fontSize: '0.65rem', color: '#999', marginTop: '4px' }}>
-                  Simulated pattern — real satellite data requires Sentinel API
+                  {activeOverlay && overlayFramesRef.current[activeOverlay]
+                    ? 'Animated from WOFOST simulation'
+                    : 'Simulated pattern — real satellite data requires Sentinel API'}
                 </div>
               </div>
             )}

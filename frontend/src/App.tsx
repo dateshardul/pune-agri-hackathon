@@ -125,8 +125,8 @@ function App() {
       <main>
         <MapView lat={lat} lon={lon} simulationResult={simResult} />
         <Dashboard lat={lat} lon={lon} onSimulationResult={setSimResult} />
-        <YieldPredictor lat={lat} lon={lon} />
-        <ScenarioExplorer lat={lat} lon={lon} />
+        <YieldPredictor lat={lat} lon={lon} onSimulationResult={setSimResult} />
+        <ScenarioExplorer lat={lat} lon={lon} onSimulationResult={setSimResult} />
         <OzoneSight lat={lat} lon={lon} />
         <GroundwaterView lat={lat} lon={lon} />
         <AdvisoryChat lat={lat} lon={lon} />

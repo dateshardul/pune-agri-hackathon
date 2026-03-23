@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { getCrops, runPrediction, type PredictionComparison, type FeatureImportance } from '../services/api';
+import { getCrops, runPrediction, type PredictionComparison, type FeatureImportance, type SimulationResult } from '../services/api';
 
 interface Props {
   lat: number;
   lon: number;
+  onSimulationResult?: (result: SimulationResult) => void;
 }
 
 const cardStyle = { background: '#fff', padding: '1rem', borderRadius: '8px', textAlign: 'center' as const };
@@ -50,7 +51,7 @@ function FeatureBar({ item, maxImportance }: { item: FeatureImportance; maxImpor
   );
 }
 
-export default function YieldPredictor({ lat, lon }: Props) {
+export default function YieldPredictor({ lat, lon, onSimulationResult }: Props) {
   const [crops, setCrops] = useState<Record<string, string>>({});
   const [selectedCrop, setSelectedCrop] = useState('wheat');
   const [result, setResult] = useState<PredictionComparison | null>(null);
@@ -71,6 +72,10 @@ export default function YieldPredictor({ lat, lon }: Props) {
         crop: selectedCrop,
       });
       setResult(res);
+      // Pass WOFOST simulation result to 3D terrain if available
+      if (res.wofost && onSimulationResult) {
+        onSimulationResult(res.wofost);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Prediction failed');
     } finally {
