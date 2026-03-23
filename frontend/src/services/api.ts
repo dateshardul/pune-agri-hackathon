@@ -283,3 +283,41 @@ export function runPrediction(params: {
 }) {
   return postJSON<PredictionComparison>(`${API_BASE}/predict/`, params);
 }
+
+// --- Elevation ---
+
+export interface ElevationData {
+  height_data: number[];
+  width: number;
+  height: number;
+  min_elevation: number;
+  max_elevation: number;
+  source: string;
+}
+
+export function getElevation(lat: number, lon: number) {
+  return fetchJSON<ElevationData>(`${API_BASE}/elevation/dem?lat=${lat}&lon=${lon}`);
+}
+
+// --- Forecast ---
+
+export interface ForecastDay {
+  date: string;
+  temp_max: number;
+  temp_min: number;
+  precipitation_mm: number;
+  weather_code: number;
+  condition: string;
+  farming_tip: string;
+}
+
+export interface ForecastResponse {
+  latitude: number;
+  longitude: number;
+  days: ForecastDay[];
+  source: string;
+}
+
+export function getForecast(lat: number, lon: number) {
+  return fetchJSON<ForecastResponse>(`${API_BASE}/data/forecast?lat=${lat}&lon=${lon}`);
+}

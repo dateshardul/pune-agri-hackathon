@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from app.models.schemas import WeatherResponse, SoilResponse
 from app.services.nasa_power import fetch_weather
 from app.services.soilgrids import fetch_soil
+from app.services.forecast import fetch_forecast
 
 router = APIRouter()
 
@@ -23,6 +24,18 @@ async def get_weather(
         return await fetch_weather(lat, lon, start, end)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"NASA POWER API error: {e}")
+
+
+@router.get("/forecast")
+async def get_forecast(
+    lat: float = Query(..., ge=-90, le=90, description="Latitude"),
+    lon: float = Query(..., ge=-180, le=180, description="Longitude"),
+):
+    """Fetch 7-day weather forecast from Open-Meteo."""
+    try:
+        return await fetch_forecast(lat, lon)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Open-Meteo API error: {e}")
 
 
 @router.get("/soil", response_model=SoilResponse)

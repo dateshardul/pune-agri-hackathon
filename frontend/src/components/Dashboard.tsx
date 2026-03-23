@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { getWeather, getSoil, runSimulation, type WeatherResponse, type SoilResponse, type SimulationResult } from '../services/api';
+import { getWeather, getSoil, getForecast, runSimulation, type WeatherResponse, type SoilResponse, type SimulationResult, type ForecastResponse } from '../services/api';
 
 interface Props {
   lat: number;
@@ -11,12 +11,14 @@ const cardStyle = { background: '#fff', padding: '1rem', borderRadius: '8px' } a
 
 export default function Dashboard({ lat, lon, onSimulationResult }: Props) {
   const [weather, setWeather] = useState<WeatherResponse | null>(null);
+  const [forecast, setForecast] = useState<ForecastResponse | null>(null);
   const [soil, setSoil] = useState<SoilResponse | null>(null);
   const [simulation, setSimulation] = useState<SimulationResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [simLoading, setSimLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [weatherTab, setWeatherTab] = useState<'past' | 'forecast'>('past');
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -29,7 +31,8 @@ export default function Dashboard({ lat, lon, onSimulationResult }: Props) {
     Promise.allSettled([
       getWeather(lat, lon),
       getSoil(lat, lon),
-    ]).then(([wResult, sResult]) => {
+      getForecast(lat, lon),
+    ]).then(([wResult, sResult, fResult]) => {
       if (controller.signal.aborted) return;
       if (wResult.status === 'fulfilled') {
         setWeather(wResult.value);
@@ -40,6 +43,9 @@ export default function Dashboard({ lat, lon, onSimulationResult }: Props) {
         setSoil(sResult.value);
       } else {
         w.push('Soil data unavailable — SoilGrids may be down');
+      }
+      if (fResult.status === 'fulfilled') {
+        setForecast(fResult.value);
       }
       if (wResult.status === 'rejected' && sResult.status === 'rejected') {
         setError('Both data sources failed. Check backend connectivity.');
@@ -87,20 +93,96 @@ export default function Dashboard({ lat, lon, onSimulationResult }: Props) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
         {/* Weather Card */}
         <div style={cardStyle}>
-          <h3 style={{ marginTop: 0 }}>Latest Weather</h3>
-          {latest ? (
-            <table>
-              <tbody>
-                <tr><td>Date</td><td>{latest.date}</td></tr>
-                <tr><td>Temperature</td><td>{latest.temperature_max ?? '—'}°C / {latest.temperature_min ?? '—'}°C</td></tr>
-                <tr><td>Rainfall</td><td>{latest.precipitation ?? '—'} mm</td></tr>
-                <tr><td>Sunlight</td><td>{latest.solar_radiation ?? '—'} MJ/m²/day</td></tr>
-                <tr><td>Humidity</td><td>{latest.relative_humidity ?? '—'}%</td></tr>
-                <tr><td>Wind Speed</td><td>{latest.wind_speed ?? '—'} m/s</td></tr>
-              </tbody>
-            </table>
-          ) : <p style={{ color: '#999' }}>Weather data unavailable</p>}
-          {weather && <small style={{ color: '#999' }}>{weather.data.length} days from {weather.source}</small>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+            <h3 style={{ marginTop: 0, marginBottom: 0, flex: 1 }}>Weather</h3>
+            <div style={{ display: 'flex', borderRadius: '6px', overflow: 'hidden', border: '1px solid #ddd' }}>
+              <button
+                onClick={() => setWeatherTab('past')}
+                style={{
+                  padding: '4px 12px', border: 'none', cursor: 'pointer', fontSize: '0.8rem',
+                  background: weatherTab === 'past' ? '#1976d2' : '#f5f5f5',
+                  color: weatherTab === 'past' ? '#fff' : '#555',
+                }}
+              >
+                Past Weather
+              </button>
+              <button
+                onClick={() => setWeatherTab('forecast')}
+                style={{
+                  padding: '4px 12px', border: 'none', cursor: 'pointer', fontSize: '0.8rem',
+                  background: weatherTab === 'forecast' ? '#1976d2' : '#f5f5f5',
+                  color: weatherTab === 'forecast' ? '#fff' : '#555',
+                }}
+              >
+                7-Day Forecast
+              </button>
+            </div>
+          </div>
+
+          {weatherTab === 'past' && (
+            <>
+              {latest ? (
+                <table>
+                  <tbody>
+                    <tr><td>Date</td><td>{latest.date}</td></tr>
+                    <tr><td>Temperature</td><td>{latest.temperature_max ?? '—'}°C / {latest.temperature_min ?? '—'}°C</td></tr>
+                    <tr><td>Rainfall</td><td>{latest.precipitation ?? '—'} mm</td></tr>
+                    <tr><td>Sunlight</td><td>{latest.solar_radiation ?? '—'} MJ/m²/day</td></tr>
+                    <tr><td>Humidity</td><td>{latest.relative_humidity ?? '—'}%</td></tr>
+                    <tr><td>Wind Speed</td><td>{latest.wind_speed ?? '—'} m/s</td></tr>
+                  </tbody>
+                </table>
+              ) : <p style={{ color: '#999' }}>Weather data unavailable</p>}
+              {weather && <small style={{ color: '#999' }}>{weather.data.length} days from {weather.source}</small>}
+            </>
+          )}
+
+          {weatherTab === 'forecast' && (
+            forecast ? (
+              <>
+                <div style={{
+                  display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '4px',
+                }}>
+                  {forecast.days.map((day) => {
+                    const d = new Date(day.date + 'T00:00:00');
+                    const dayLabel = d.toLocaleDateString('en-IN', { weekday: 'short' });
+                    const dateLabel = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                    return (
+                      <div key={day.date} style={{
+                        minWidth: '110px', padding: '8px 10px', borderRadius: '8px',
+                        background: '#f5f8ff', border: '1px solid #e3eaf5', textAlign: 'center',
+                        fontSize: '0.8rem', flex: '0 0 auto',
+                      }}>
+                        <div style={{ fontWeight: 600, marginBottom: '2px' }}>{dayLabel}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#888', marginBottom: '6px' }}>{dateLabel}</div>
+                        <div style={{ fontSize: '1rem', marginBottom: '4px' }}>
+                          <strong>{day.temp_max.toFixed(0)}°</strong>
+                          <span style={{ color: '#888' }}> / {day.temp_min.toFixed(0)}°</span>
+                        </div>
+                        <div style={{ color: '#1976d2', fontWeight: 500, marginBottom: '2px' }}>
+                          {day.condition}
+                        </div>
+                        {day.precipitation_mm > 0 && (
+                          <div style={{ fontSize: '0.75rem', color: '#0277bd' }}>
+                            {day.precipitation_mm.toFixed(1)} mm
+                          </div>
+                        )}
+                        <div style={{
+                          marginTop: '6px', fontSize: '0.7rem', color: '#555',
+                          borderTop: '1px solid #e0e0e0', paddingTop: '4px',
+                        }}>
+                          {day.farming_tip}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <small style={{ color: '#999', display: 'block', marginTop: '6px' }}>Source: {forecast.source}</small>
+              </>
+            ) : (
+              <p style={{ color: '#999', fontSize: '0.9rem' }}>Forecast unavailable — endpoint may not be ready yet</p>
+            )
+          )}
         </div>
 
         {/* Soil Card */}

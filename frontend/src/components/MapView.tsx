@@ -6,7 +6,7 @@ import {
 } from 'holographic-core';
 import type { OverlayConfig } from 'holographic-core';
 import * as THREE from 'three';
-import { getWeather, getSoil, type WeatherResponse, type SoilResponse, type SimulationResult } from '../services/api';
+import { getWeather, getSoil, getElevation, type WeatherResponse, type SoilResponse, type SimulationResult, type ElevationData } from '../services/api';
 
 interface Props {
   lat: number;
@@ -239,6 +239,9 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
   const [layers, setLayers] = useState<LayerEntry[]>([]);
   const [selectedAnnotation, setSelectedAnnotation] = useState<Annotation | null>(null);
 
+  // Elevation info for display
+  const [elevationRange, setElevationRange] = useState<{ min: number; max: number } | null>(null);
+
   // Simulation playback state
   const [simPlaying, setSimPlaying] = useState(false);
   const [simFrame, setSimFrame] = useState(0);
@@ -267,6 +270,7 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
     const dataPromise = Promise.allSettled([
       getWeather(lat, lon),
       getSoil(lat, lon),
+      getElevation(lat, lon),
     ]);
 
     try {
@@ -280,13 +284,47 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
       const agriculturePlugin: VerticalPlugin = {
         name: 'agriculture',
         async init(eng) {
-          // ── Terrain (seeded by location so each city looks different) ──
-          const seed = lat * 100 + lon;
-          const heightData = generateSeededHeightmap(256, 256, seed);
-          const terrain = new TerrainMesh({
-            heightData, width: 256, height: 256, heightScale: 1,
-          });
+          // ── Wait for data so we can use real elevation ──
+          const [wResult, sResult, eResult] = await dataPromise;
+          if (controller.signal.aborted) return;
+
+          const weather = wResult.status === 'fulfilled' ? wResult.value : null;
+          const soil = sResult.status === 'fulfilled' ? sResult.value : null;
+          const elevResult: ElevationData | null = eResult.status === 'fulfilled' ? eResult.value : null;
+
+          // ── Terrain ──
+          let terrain: TerrainMesh;
+          let elevMin: number | null = null;
+          let elevMax: number | null = null;
+
+          if (elevResult) {
+            const rawHeight = new Float32Array(elevResult.height_data);
+            for (let i = 0; i < rawHeight.length; i++) {
+              rawHeight[i] -= elevResult.min_elevation;
+            }
+            const elevRange = elevResult.max_elevation - elevResult.min_elevation;
+            terrain = new TerrainMesh({
+              heightData: rawHeight,
+              width: elevResult.width,
+              height: elevResult.height,
+              heightScale: elevRange > 0 ? 30 / elevRange : 1,
+            });
+            elevMin = elevResult.min_elevation;
+            elevMax = elevResult.max_elevation;
+          } else {
+            // Fallback: procedural heightmap seeded by location
+            const seed = lat * 100 + lon;
+            const heightData = generateSeededHeightmap(256, 256, seed);
+            terrain = new TerrainMesh({
+              heightData, width: 256, height: 256, heightScale: 1,
+            });
+          }
           terrainRef.current = terrain;
+          if (elevMin !== null && elevMax !== null) {
+            setElevationRange({ min: elevMin, max: elevMax });
+          } else {
+            setElevationRange(null);
+          }
 
           const terrainLayer = eng.layers.add({ name: 'Terrain', visible: true });
           terrain.addTo(terrainLayer.group);
@@ -302,12 +340,7 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
           zone.position.set(0, 0.5, 0);
           cropLayer.group.add(zone);
 
-          // ── Wait for real data, build annotations ──
-          const [wResult, sResult] = await dataPromise;
-          if (controller.signal.aborted) return;
-
-          const weather = wResult.status === 'fulfilled' ? wResult.value : null;
-          const soil = sResult.status === 'fulfilled' ? sResult.value : null;
+          // ── Build annotations from fetched data ──
           const annotationDefs = buildAnnotations(weather, soil, lat, lon);
 
           // Register annotations layer with engine's annotation group
@@ -450,6 +483,8 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
 
     const player = new TimeSeriesPlayer(terrain, frames, {
       colormap: { name: 'rdylgn', min: 0, max: 7 },
+      dataWidth: 64,
+      dataHeight: 64,
     });
     playerRef.current = player;
 
@@ -526,6 +561,7 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
             padding: '8px 12px', borderRadius: '6px', fontSize: '0.8rem',
           }}>
             ~1 km² terrain around ({lat.toFixed(2)}°N, {lon.toFixed(2)}°E)
+            {elevationRange && ` — Elevation: ${Math.round(elevationRange.min)}–${Math.round(elevationRange.max)}m`}
             <br />
             <span style={{ fontSize: '0.7rem', color: '#aaa' }}>
               Orbit: drag | Zoom: scroll | Pan: right-drag | Click markers for details

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import data, simulation, ozone, advisory, groundwater, prediction
+from app.api.routes import data, simulation, ozone, advisory, groundwater, prediction, elevation
 
 app = FastAPI(
     title="KrishiTwin API",
@@ -23,6 +23,7 @@ app.include_router(ozone.router, prefix="/api/ozone", tags=["ozone"])
 app.include_router(advisory.router, prefix="/api/advisory", tags=["advisory"])
 app.include_router(groundwater.router, prefix="/api/groundwater", tags=["groundwater"])
 app.include_router(prediction.router, prefix="/api/predict", tags=["prediction"])
+app.include_router(elevation.router, prefix="/api/elevation", tags=["elevation"])
 
 
 @app.on_event("startup")
