@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import {
-  Engine, DataLoader, TerrainMesh,
+  Engine, TerrainMesh,
   ScreenshotExporter, SimulationOverlayBuilder, TimeSeriesPlayer, GeoJSONOverlay,
   type VerticalPlugin, type Annotation, type LayerEntry,
 } from 'holographic-core';
@@ -79,7 +79,27 @@ const infoCardStyle = {
   border: '1px solid rgba(0,212,255,0.3)',
 };
 
-// ── Synthetic data generator (location-seeded) ───────────────────────
+// ── Location-seeded data generators ──────────────────────────────────
+
+function generateSeededHeightmap(
+  width: number, height: number, seed: number,
+): Float32Array {
+  const data = new Float32Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const nx = x / width - 0.5;
+      const ny = y / height - 0.5;
+      // Multi-octave noise seeded by location
+      const h =
+        Math.sin(nx * 6 + seed * 0.7) * Math.cos(ny * 6 + seed * 1.3) * 8 +
+        Math.sin(nx * 12 + seed * 2.1 + 1) * Math.cos(ny * 10 + seed * 0.4 + 2) * 4 +
+        Math.sin(nx * 25 + seed * 3.7) * Math.cos(ny * 25 + seed * 0.9) * 1.5 +
+        Math.cos(Math.sqrt(nx * nx + ny * ny) * 15 + seed * 1.1) * 3;
+      data[y * width + x] = h;
+    }
+  }
+  return data;
+}
 
 function generateSyntheticData(
   width: number, height: number,
@@ -260,10 +280,12 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
       const agriculturePlugin: VerticalPlugin = {
         name: 'agriculture',
         async init(eng) {
-          // ── Terrain ──
-          const loader = new DataLoader();
-          const terrainConfig = loader.generateSampleHeightmap(256, 256);
-          const terrain = new TerrainMesh(terrainConfig);
+          // ── Terrain (seeded by location so each city looks different) ──
+          const seed = lat * 100 + lon;
+          const heightData = generateSeededHeightmap(256, 256, seed);
+          const terrain = new TerrainMesh({
+            heightData, width: 256, height: 256, heightScale: 1,
+          });
           terrainRef.current = terrain;
 
           const terrainLayer = eng.layers.add({ name: 'Terrain', visible: true });
@@ -417,10 +439,15 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
     // Stop any existing player
     playerRef.current?.dispose();
 
-    const laiSeries = SimulationOverlayBuilder.extractTimeSeries(result.daily_output, 'LAI');
+    // Our WOFOST output uses 'date' not 'day' as the time field
+    const laiSeries = SimulationOverlayBuilder.extractTimeSeries(result.daily_output, 'LAI', 'date');
+    if (laiSeries.length === 0) return; // no LAI data (e.g., crop hasn't emerged)
+
     const frames = SimulationOverlayBuilder.buildFrames(laiSeries, {
       gridWidth: 64, gridHeight: 64, spatialPattern: 'noise',
     });
+    if (frames.length === 0) return;
+
     const player = new TimeSeriesPlayer(terrain, frames, {
       colormap: { name: 'rdylgn', min: 0, max: 7 },
     });
