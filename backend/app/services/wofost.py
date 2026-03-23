@@ -32,6 +32,52 @@ CROP_VARIETIES: dict[str, str] = {
     "pigeonpea": "Pigeonpea_VanHeemst_1988",
 }
 
+# Indian crop calendar — (sowing_month, sowing_day, duration_days)
+# Rabi crops: sown Oct-Nov, harvested Feb-Apr
+# Kharif crops: sown Jun-Jul, harvested Sep-Nov
+CROP_CALENDAR: dict[str, tuple[int, int, int]] = {
+    "wheat":     (11, 15, 140),  # Rabi: mid-Nov → early Apr
+    "chickpea":  (10, 20, 130),  # Rabi: late Oct → early Mar
+    "mungbean":  (10, 15, 75),   # Rabi: mid-Oct → late Dec
+    "potato":    (10, 25, 100),  # Rabi: late Oct → early Feb
+    "rice":      (6, 25, 130),   # Kharif: late Jun → early Nov
+    "maize":     (6, 20, 110),   # Kharif: mid-Jun → early Oct
+    "cotton":    (6, 1, 170),    # Kharif: early Jun → mid-Nov
+    "sorghum":   (7, 1, 110),    # Kharif: early Jul → mid-Oct
+    "millet":    (7, 1, 90),     # Kharif: early Jul → late Sep
+    "groundnut": (6, 15, 120),   # Kharif: mid-Jun → mid-Oct
+    "soybean":   (6, 20, 100),   # Kharif: mid-Jun → late Sep
+    "pigeonpea": (6, 15, 160),   # Kharif: mid-Jun → mid-Nov
+    "sugarcane": (2, 15, 300),   # Year-round: mid-Feb → mid-Dec
+}
+
+
+def get_default_sowing_date(crop: str, reference_year: int | None = None) -> date:
+    """Get the appropriate sowing date for a crop based on Indian crop calendar.
+
+    Uses the most recent completed or upcoming season relative to today.
+    """
+    cal = CROP_CALENDAR.get(crop, (11, 1, 120))
+    sow_month, sow_day, _ = cal
+    today = date.today()
+
+    if reference_year:
+        return date(reference_year, sow_month, sow_day)
+
+    # Pick the most recent sowing date that's at least 30 days in the past
+    # (so we have weather data for most of the season)
+    candidate = date(today.year, sow_month, sow_day)
+    if candidate > today - timedelta(days=30):
+        # This year's season hasn't started or just started — use last year
+        candidate = date(today.year - 1, sow_month, sow_day)
+    return candidate
+
+
+def get_default_harvest_date(crop: str, sowing_date: date) -> date:
+    """Get harvest date based on crop duration from calendar."""
+    _, _, duration = CROP_CALENDAR.get(crop, (11, 1, 120))
+    return sowing_date + timedelta(days=duration)
+
 
 def _saturated_vapour_pressure(temp_c: float) -> float:
     """Tetens formula: saturation vapour pressure (kPa) from temperature (°C)."""
@@ -176,12 +222,17 @@ def run_wofost(
 
     variety = CROP_VARIETIES[crop]
 
-    # Default dates based on weather data range
+    # Default dates using Indian crop calendar
     weather_dates = [datetime.strptime(w.date, "%Y-%m-%d").date() for w in weather_data]
     if sowing_date is None:
-        sowing_date = min(weather_dates) + timedelta(days=7)
+        sowing_date = get_default_sowing_date(crop)
     if harvest_date is None:
-        harvest_date = sowing_date + timedelta(days=120)
+        harvest_date = get_default_harvest_date(crop, sowing_date)
+
+    # Cap harvest at available weather data (can't simulate into the future)
+    last_weather = max(weather_dates)
+    if harvest_date > last_weather:
+        harvest_date = last_weather
 
     # Weather provider
     wdp = NASAPowerWeatherAdapter(latitude, longitude, weather_data, elevation)

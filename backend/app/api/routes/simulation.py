@@ -10,7 +10,7 @@ from app.models.schemas import (
     ScenarioRequest,
 )
 from app.services.nasa_power import fetch_weather
-from app.services.wofost import get_available_crops, run_wofost
+from app.services.wofost import get_available_crops, run_wofost, get_default_sowing_date, get_default_harvest_date
 
 router = APIRouter()
 
@@ -38,8 +38,11 @@ async def run_simulation(req: SimulationRequest):
             weather_start = sowing - timedelta(days=35)
             weather_end = harvest + timedelta(days=10)
         else:
-            weather_end = date.today() - timedelta(days=1)
-            weather_start = weather_end - timedelta(days=180)
+            # Use Indian crop calendar for correct season
+            sowing = get_default_sowing_date(req.crop)
+            harvest = get_default_harvest_date(req.crop, sowing)
+            weather_start = sowing - timedelta(days=35)
+            weather_end = min(harvest + timedelta(days=10), date.today() - timedelta(days=1))
 
         # Fetch weather
         weather_resp = await fetch_weather(req.latitude, req.longitude, weather_start, weather_end)
@@ -79,8 +82,10 @@ async def run_scenario(req: ScenarioRequest):
             weather_start = sowing - timedelta(days=35)
             weather_end = harvest + timedelta(days=10)
         else:
-            weather_end = date.today() - timedelta(days=1)
-            weather_start = weather_end - timedelta(days=180)
+            sowing = get_default_sowing_date(req.crop)
+            harvest = get_default_harvest_date(req.crop, sowing)
+            weather_start = sowing - timedelta(days=35)
+            weather_end = min(harvest + timedelta(days=10), date.today() - timedelta(days=1))
 
         # Fetch baseline weather
         weather_resp = await fetch_weather(req.latitude, req.longitude, weather_start, weather_end)

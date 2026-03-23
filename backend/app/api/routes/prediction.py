@@ -15,7 +15,7 @@ from app.services.nasa_power import fetch_weather
 from app.services.soilgrids import fetch_soil
 from app.services.ozone_sight import estimate_aot40, estimate_yield_loss
 from app.services.groundwater import fetch_groundwater_analysis
-from app.services.wofost import run_wofost
+from app.services.wofost import run_wofost, get_default_sowing_date, get_default_harvest_date
 
 router = APIRouter()
 
@@ -42,8 +42,10 @@ async def predict_yield(req: SimulationRequest):
             weather_start = sowing - timedelta(days=35)
             weather_end = harvest + timedelta(days=10)
         else:
-            weather_end = date.today() - timedelta(days=1)
-            weather_start = weather_end - timedelta(days=180)
+            sowing = get_default_sowing_date(req.crop)
+            harvest = get_default_harvest_date(req.crop, sowing)
+            weather_start = sowing - timedelta(days=35)
+            weather_end = min(harvest + timedelta(days=10), date.today() - timedelta(days=1))
 
         # Fetch all data sources in parallel
         weather_task = fetch_weather(req.latitude, req.longitude, weather_start, weather_end)
