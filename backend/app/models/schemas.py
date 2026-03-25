@@ -61,3 +61,44 @@ class ScenarioRequest(BaseModel):
     temp_offset: float = Field(0.0, description="Temperature change (°C) to apply")
     precip_multiplier: float = Field(1.0, description="Precipitation multiplier (e.g. 0.8 = 20% less rain)")
     scenario_name: str = Field("custom", description="Scenario label")
+
+
+# --- Water Advisory (AquaCrop) ---
+
+class WaterAdvisoryRequest(BaseModel):
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+    crop: str = Field("wheat", description="Crop name")
+    sowing_date: str | None = Field(None, description="Sowing date (YYYY-MM-DD)")
+    precip_multiplier: float = Field(1.0, description="Precipitation multiplier (e.g. 0.7 = 30% less rain)")
+    irrigation_mm: float = Field(0.0, description="Planned seasonal irrigation (mm)")
+
+
+# --- Nutrient Advisory (DSSAT) ---
+
+class NutrientAdvisoryRequest(BaseModel):
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+    crop: str = Field("wheat", description="Crop name")
+    sowing_date: str | None = Field(None, description="Sowing date (YYYY-MM-DD)")
+    elevation: float = Field(500.0, description="Site elevation (m)")
+    n_kg_ha: float = Field(120.0, description="Total nitrogen application (kg/ha)")
+    p_kg_ha: float = Field(60.0, description="Total phosphorus application (kg/ha)")
+    k_kg_ha: float = Field(40.0, description="Total potassium application (kg/ha)")
+
+
+# --- Smart Advisory (Multi-model router) ---
+
+class SmartAdvisoryRequest(BaseModel):
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+    crop: str = Field("wheat", description="Crop name")
+    sowing_date: str | None = Field(None, description="Sowing date (YYYY-MM-DD)")
+    advisory_type: str = Field(
+        "full",
+        description="Advisory focus: 'water', 'nutrient', 'yield', or 'full'"
+    )
+    precip_multiplier: float = Field(1.0, description="Precipitation scenario multiplier")
+    n_kg_ha: float = Field(120.0, description="Nitrogen application (kg/ha)")
+    p_kg_ha: float = Field(60.0, description="Phosphorus application (kg/ha)")
+    k_kg_ha: float = Field(40.0, description="Potassium application (kg/ha)")

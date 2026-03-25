@@ -1,4 +1,4 @@
-"""Simulation endpoints — WOFOST crop simulation + what-if scenarios."""
+"""Simulation endpoints — WOFOST, AquaCrop, DSSAT crop simulation + smart advisory."""
 
 from datetime import date, timedelta
 
@@ -6,11 +6,16 @@ from fastapi import APIRouter, HTTPException
 
 from app.models.schemas import (
     DailyWeather,
-    SimulationRequest,
+    NutrientAdvisoryRequest,
     ScenarioRequest,
+    SimulationRequest,
+    SmartAdvisoryRequest,
+    WaterAdvisoryRequest,
 )
 from app.services.nasa_power import fetch_weather
 from app.services.wofost import get_available_crops, run_wofost, get_default_sowing_date, get_default_harvest_date
+from app.services.aquacrop_sim import run_aquacrop, get_aquacrop_crops, AQUACROP_CROPS
+from app.services.dssat_sim import run_dssat, get_dssat_crops, DSSAT_CROPS
 
 router = APIRouter()
 
@@ -185,3 +190,277 @@ PRESET_SCENARIOS = [
 async def list_scenarios():
     """List preset climate scenarios for what-if analysis."""
     return {"scenarios": PRESET_SCENARIOS}
+
+
+# --- AquaCrop Water Advisory ---
+
+@router.post("/water-advisory")
+async def water_advisory(req: WaterAdvisoryRequest):
+    """Run AquaCrop water-stress simulation for irrigation advisory.
+
+    Best for: drought impact analysis, irrigation scheduling,
+    water productivity optimization.
+    """
+    try:
+        sowing = date.fromisoformat(req.sowing_date) if req.sowing_date else None
+        if sowing is None:
+            sowing = get_default_sowing_date(req.crop)
+
+        weather_start = sowing - timedelta(days=150)
+        weather_end = min(sowing + timedelta(days=250), date.today() - timedelta(days=1))
+
+        weather_resp = await fetch_weather(req.latitude, req.longitude, weather_start, weather_end)
+
+        result = run_aquacrop(
+            latitude=req.latitude,
+            longitude=req.longitude,
+            weather_data=weather_resp.data,
+            crop=req.crop,
+            sowing_date=sowing,
+            precip_multiplier=req.precip_multiplier,
+            irrigation_mm=req.irrigation_mm,
+        )
+        return result
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AquaCrop error: {e}")
+
+
+@router.get("/water-advisory/crops")
+async def list_water_crops():
+    """List crops supported by AquaCrop water advisory."""
+    return {"crops": get_aquacrop_crops(), "model": "AquaCrop"}
+
+
+# --- DSSAT Nutrient Advisory ---
+
+@router.post("/nutrient-advisory")
+async def nutrient_advisory(req: NutrientAdvisoryRequest):
+    """Run DSSAT simulation for nutrient management advisory.
+
+    Best for: fertilizer optimization, N/P/K scheduling,
+    cultivar comparison, soil nutrient dynamics.
+    """
+    try:
+        sowing = date.fromisoformat(req.sowing_date) if req.sowing_date else None
+        if sowing is None:
+            sowing = get_default_sowing_date(req.crop)
+
+        weather_start = sowing - timedelta(days=30)
+        weather_end = min(sowing + timedelta(days=200), date.today() - timedelta(days=1))
+
+        weather_resp = await fetch_weather(req.latitude, req.longitude, weather_start, weather_end)
+
+        result = run_dssat(
+            latitude=req.latitude,
+            longitude=req.longitude,
+            weather_data=weather_resp.data,
+            crop=req.crop,
+            sowing_date=sowing,
+            elevation=req.elevation,
+            n_kg_ha=req.n_kg_ha,
+            p_kg_ha=req.p_kg_ha,
+            k_kg_ha=req.k_kg_ha,
+        )
+        return result
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"DSSAT error: {e}")
+
+
+@router.get("/nutrient-advisory/crops")
+async def list_nutrient_crops():
+    """List crops supported by DSSAT nutrient advisory."""
+    return {"crops": get_dssat_crops(), "model": "DSSAT-CSM"}
+
+
+# --- Smart Multi-Model Advisory ---
+
+@router.post("/smart-advisory")
+async def smart_advisory(req: SmartAdvisoryRequest):
+    """Smart multi-model advisory — runs WOFOST + AquaCrop + DSSAT as appropriate.
+
+    Returns a unified response matching the frontend SmartAdvisory component format.
+    Models are selected based on crop support:
+    - WOFOST: always runs (all 13 crops)
+    - AquaCrop: runs if crop is supported (8 crops)
+    - DSSAT: runs if crop is supported (9 crops)
+    Unsupported model sections are set to null.
+    """
+    try:
+        sowing = date.fromisoformat(req.sowing_date) if req.sowing_date else None
+        if sowing is None:
+            sowing = get_default_sowing_date(req.crop)
+
+        harvest = get_default_harvest_date(req.crop, sowing)
+
+        weather_start = sowing - timedelta(days=150)
+        weather_end = min(sowing + timedelta(days=250), date.today() - timedelta(days=1))
+
+        weather_resp = await fetch_weather(req.latitude, req.longitude, weather_start, weather_end)
+
+        # --- WOFOST (always runs) ---
+        yield_forecast = None
+        try:
+            wofost_result = run_wofost(
+                latitude=req.latitude, longitude=req.longitude,
+                weather_data=weather_resp.data, crop=req.crop,
+                sowing_date=sowing, harvest_date=harvest,
+            )
+            twso = wofost_result.get("summary", {}).get("TWSO", 0)
+            days_sim = wofost_result.get("metadata", {}).get("days_simulated", 0)
+            yield_forecast = {
+                "model": "WOFOST",
+                "yield_kg_ha": round(twso, 1) if twso else 0,
+                "growth_days": days_sim,
+                "confidence": "high" if days_sim > 60 else "medium" if days_sim > 30 else "low",
+            }
+        except Exception as e:
+            yield_forecast = {
+                "model": "WOFOST",
+                "yield_kg_ha": 0,
+                "growth_days": 0,
+                "confidence": "low",
+                "error": str(e),
+            }
+
+        # --- AquaCrop (water advisory) ---
+        water_advisory_data = None
+        if req.crop in AQUACROP_CROPS:
+            try:
+                ac_result = run_aquacrop(
+                    latitude=req.latitude, longitude=req.longitude,
+                    weather_data=weather_resp.data, crop=req.crop,
+                    sowing_date=sowing,
+                    precip_multiplier=req.precip_multiplier,
+                )
+                water_advisory_data = ac_result.get("water_advisory")
+            except Exception as e:
+                water_advisory_data = None  # graceful fallback
+
+        # --- DSSAT (nutrient advisory) ---
+        nutrient_advisory_data = None
+        if req.crop in DSSAT_CROPS:
+            try:
+                dssat_result = run_dssat(
+                    latitude=req.latitude, longitude=req.longitude,
+                    weather_data=weather_resp.data, crop=req.crop,
+                    sowing_date=sowing,
+                    n_kg_ha=req.n_kg_ha, p_kg_ha=req.p_kg_ha, k_kg_ha=req.k_kg_ha,
+                )
+                nutrient_advisory_data = dssat_result.get("nutrient_advisory")
+            except Exception as e:
+                nutrient_advisory_data = None  # graceful fallback
+
+        # --- Build recommendations ---
+        recommendations = _build_recommendations(
+            req.crop, yield_forecast, water_advisory_data, nutrient_advisory_data,
+        )
+
+        # --- Build data sources ---
+        data_sources = {
+            "weather": "NASA POWER (daily, satellite-derived)",
+            "soil": "ISRIC SoilGrids v2.0 (250m resolution)",
+            "water_model": "FAO AquaCrop" if water_advisory_data else "Not available for this crop",
+            "nutrient_model": "DSSAT-CSM v4.8" if nutrient_advisory_data else "Not available for this crop",
+        }
+
+        return {
+            "crop": req.crop,
+            "location": {"latitude": req.latitude, "longitude": req.longitude},
+            "yield_forecast": yield_forecast,
+            "water_advisory": water_advisory_data,
+            "nutrient_advisory": nutrient_advisory_data,
+            "recommendations": recommendations,
+            "data_sources": data_sources,
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Smart advisory error: {e}")
+
+
+def _build_recommendations(
+    crop: str,
+    yield_forecast: dict | None,
+    water_advisory: dict | None,
+    nutrient_advisory: dict | None,
+) -> list[str]:
+    """Generate combined plain-language recommendations."""
+    recs = []
+
+    # Yield-based
+    if yield_forecast and yield_forecast.get("yield_kg_ha", 0) > 0:
+        yield_t = yield_forecast["yield_kg_ha"] / 1000
+        recs.append(
+            f"Expected yield for {crop}: {yield_t:.1f} tonnes/ha "
+            f"({yield_forecast['growth_days']} day growing season)."
+        )
+
+    # Water-based
+    if water_advisory:
+        drought = water_advisory.get("drought_risk", "low")
+        irr_need = water_advisory.get("irrigation_need_mm", 0)
+        if drought in ("high", "severe"):
+            recs.append(
+                f"Drought risk is {drought}. Plan {irr_need:.0f}mm supplemental irrigation "
+                f"to prevent yield loss."
+            )
+        elif irr_need > 50:
+            recs.append(
+                f"Moderate water deficit expected. Schedule {irr_need:.0f}mm irrigation "
+                f"across the growing season, prioritizing reproductive stages."
+            )
+        else:
+            recs.append("Rainfall appears sufficient. Monitor soil moisture weekly.")
+    else:
+        recs.append(
+            f"Water advisory not available for {crop} — WOFOST yield forecast used instead. "
+            "Monitor soil moisture manually."
+        )
+
+    # Nutrient-based
+    if nutrient_advisory:
+        n = nutrient_advisory.get("nitrogen_kg_ha", 0)
+        note = nutrient_advisory.get("soil_health_note", "")
+        recs.append(
+            f"Apply {n} kg/ha nitrogen in 3 splits (basal + 2 top-dress at 30 and 60 DAS)."
+        )
+        if "stress" in note.lower():
+            recs.append(note)
+    else:
+        recs.append(
+            f"Nutrient advisory not available for {crop} — follow local agricultural "
+            "extension recommendations for fertilizer application."
+        )
+
+    return recs
+
+
+@router.get("/smart-advisory/models")
+async def list_models():
+    """List all available simulation models and their crop coverage."""
+    return {
+        "models": {
+            "wofost": {
+                "name": "WOFOST 7.2",
+                "focus": "Baseline yield prediction, daily growth curves",
+                "crops": list(get_available_crops().keys()),
+            },
+            "aquacrop": {
+                "name": "FAO AquaCrop",
+                "focus": "Water productivity, drought impact, irrigation scheduling",
+                "crops": get_aquacrop_crops(),
+            },
+            "dssat": {
+                "name": "DSSAT-CSM v4.8",
+                "focus": "Nutrient management, fertilizer optimization, cultivar comparison",
+                "crops": get_dssat_crops(),
+            },
+        }
+    }
