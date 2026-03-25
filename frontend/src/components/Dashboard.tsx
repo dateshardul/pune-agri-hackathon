@@ -81,7 +81,7 @@ export default function Dashboard({ lat, lon, onSimulationResult }: Props) {
   const meta = simulation?.metadata;
 
   return (
-    <section className="dashboard">
+    <section id="dashboard" className="dashboard accent-blue">
       <h2>Farm Data Dashboard</h2>
       <p>Location: {lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E</p>
 

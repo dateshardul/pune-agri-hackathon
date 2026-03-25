@@ -61,7 +61,7 @@ export default function ScenarioExplorer({ lat, lon, onSimulationResult }: Props
   const changeColor = yieldChange > 0 ? '#2e7d32' : yieldChange < -5 ? '#c62828' : '#f57f17';
 
   return (
-    <section>
+    <section id="scenarios" className="accent-orange">
       <h2>What-If Climate Explorer</h2>
       <p>See how your crop yield changes under different climate futures ({lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E)</p>
 

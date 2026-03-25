@@ -1,23 +1,69 @@
+/* ===== KrishiTwin — Polished UI ===== */
+
+/* --- CSS Variables --- */
+:root {
+  --color-primary: #1b5e20;
+  --color-primary-light: #2e7d32;
+  --color-teal: #00695c;
+  --color-blue: #1976d2;
+  --color-green: #2e7d32;
+  --color-orange: #e65100;
+  --color-purple: #6a1b9a;
+  --color-deep-blue: #0277bd;
+  --color-slate: #455a64;
+  --color-bg: #f0f2f5;
+  --color-card: #ffffff;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,0.10);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --transition: 0.2s ease;
+}
+
+/* --- Reset & Base --- */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-bg);
+  margin: 0;
+}
+
 .app {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
-  font-family: system-ui, -apple-system, sans-serif;
+  padding: 0 2rem 2rem;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  color: #1a1a1a;
 }
 
+/* --- Branded Header --- */
 header {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-teal) 100%);
+  color: #fff;
   text-align: center;
-  margin-bottom: 2rem;
+  margin: 0 -2rem;
+  padding: 2rem 2rem 1rem;
+  margin-bottom: 0;
+  position: relative;
 }
 
 header h1 {
   font-size: 2.5rem;
-  margin-bottom: 0.5rem;
+  margin: 0 0 0.25rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.15);
 }
 
 header p {
-  color: #666;
-  font-size: 1.1rem;
+  color: rgba(255,255,255,0.85);
+  font-size: 1.05rem;
+  margin: 0;
+  font-weight: 400;
 }
 
 .location-bar {
@@ -25,7 +71,7 @@ header p {
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  margin-top: 0.75rem;
+  margin-top: 1rem;
   flex-wrap: wrap;
 }
 
@@ -34,6 +80,24 @@ header p {
   gap: 0.75rem;
   align-items: center;
   font-size: 0.9rem;
+  color: rgba(255,255,255,0.9);
+}
+
+.location-inputs input {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #fff;
+  border-radius: 6px;
+  padding: 5px 8px;
+  width: 80px;
+  font-size: 0.9rem;
+  transition: background var(--transition);
+}
+
+.location-inputs input:focus {
+  outline: none;
+  background: rgba(255,255,255,0.25);
+  border-color: rgba(255,255,255,0.6);
 }
 
 .location-presets {
@@ -41,46 +105,359 @@ header p {
   gap: 0.4rem;
 }
 
+.location-presets button {
+  background: rgba(255,255,255,0.15) !important;
+  border: 1px solid rgba(255,255,255,0.3) !important;
+  color: rgba(255,255,255,0.9) !important;
+  font-size: 0.85rem !important;
+  padding: 4px 14px !important;
+  border-radius: 16px !important;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-weight: 400 !important;
+}
+
+.location-presets button:hover {
+  background: rgba(255,255,255,0.25) !important;
+}
+
+.location-presets button.preset-active,
+.location-presets button[style*="border: 2px"] {
+  background: rgba(255,255,255,0.3) !important;
+  border-color: #fff !important;
+  color: #fff !important;
+  font-weight: 600 !important;
+}
+
+/* --- Sticky Section Navigation Tabs --- */
+.section-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--color-card);
+  margin: 0 -2rem;
+  padding: 0 2rem;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.section-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.section-nav a {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  text-decoration: none;
+  color: #666;
+  font-size: 0.82rem;
+  font-weight: 500;
+  white-space: nowrap;
+  border-bottom: 3px solid transparent;
+  transition: all var(--transition);
+  cursor: pointer;
+}
+
+.section-nav a:hover {
+  color: #333;
+  background: #f5f5f5;
+}
+
+.section-nav a.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  font-weight: 600;
+}
+
+.section-nav .nav-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* --- Main Layout --- */
 main {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
 }
 
+/* --- Section Cards --- */
 section {
-  background: #f8f9fa;
-  border-radius: 8px;
+  background: var(--color-card);
+  border-radius: var(--radius-md);
   padding: 1.5rem;
+  box-shadow: var(--shadow-md);
+  border-left: 4px solid #e0e0e0;
+  scroll-margin-top: 60px;
+  transition: box-shadow var(--transition);
 }
 
+section:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+/* Color-coded section accents */
+section.accent-blue    { border-left-color: var(--color-blue); }
+section.accent-green   { border-left-color: var(--color-green); }
+section.accent-orange  { border-left-color: var(--color-orange); }
+section.accent-purple  { border-left-color: var(--color-purple); }
+section.accent-deep-blue { border-left-color: var(--color-deep-blue); }
+section.accent-teal    { border-left-color: var(--color-teal); }
+section.accent-slate   { border-left-color: var(--color-slate); }
+
+/* --- Section Headers --- */
 section h2 {
   margin-top: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: -0.3px;
 }
 
+section > p:first-of-type {
+  color: #666;
+  font-size: 0.9rem;
+  margin-top: -0.25rem;
+}
+
+/* --- Tables --- */
 table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
 }
 
 th, td {
   text-align: left;
-  padding: 0.5rem;
-  border-bottom: 1px solid #dee2e6;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #eee;
 }
 
 th {
   font-weight: 600;
-  background: #e9ecef;
+  background: #f5f7fa;
+  color: #444;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
+tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+tbody tr:hover {
+  background: #f0f4ff;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* --- Buttons --- */
+button {
+  font-family: inherit;
+  transition: all var(--transition);
+}
+
+button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+button:not(:disabled):active {
+  transform: translateY(0);
+}
+
+/* Primary action buttons (in sections) */
+section button {
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+section button:hover:not(:disabled) {
+  background: var(--color-primary-light);
+}
+
+section button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Crop quick-sim buttons (pill style) */
+.dashboard section button,
+section.accent-blue button {
+  background: #e8f0fe;
+  color: var(--color-blue);
+  border: 1px solid #c5d8f8;
+}
+
+section.accent-blue button:hover:not(:disabled) {
+  background: #d2e3fc;
+}
+
+/* --- Metric Cards (inside sections) --- */
+.metric-card {
+  background: var(--color-card);
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  text-align: center;
+  border: 1px solid #eee;
+  transition: all var(--transition);
+}
+
+.metric-card:hover {
+  border-color: #ddd;
+  box-shadow: var(--shadow-sm);
+}
+
+/* --- Model Attribution Badges --- */
+.model-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.model-badge.wofost  { background: #e3f2fd; color: #1565c0; }
+.model-badge.aquacrop { background: #e0f2f1; color: #00695c; }
+.model-badge.dssat   { background: #fff3e0; color: #ef6c00; }
+
+/* --- Loading & Error States --- */
 .loading {
   text-align: center;
-  padding: 2rem;
-  color: #666;
+  padding: 2.5rem;
+  color: #888;
+  font-size: 0.95rem;
+}
+
+.loading::before {
+  content: '';
+  display: block;
+  width: 28px;
+  height: 28px;
+  margin: 0 auto 0.75rem;
+  border: 3px solid #e0e0e0;
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .error {
   text-align: center;
   padding: 2rem;
-  color: #d32f2f;
+  color: #c62828;
+  background: #ffebee;
+  border-radius: var(--radius-sm);
+}
+
+/* --- Details/Summary (transparency sections) --- */
+details {
+  border-top: 1px solid #eee;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+}
+
+details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #555;
+  font-size: 0.85rem;
+  padding: 4px 0;
+  transition: color var(--transition);
+}
+
+details summary:hover {
+  color: #333;
+}
+
+details[open] summary {
+  margin-bottom: 0.5rem;
+}
+
+/* --- Scrollbar styling --- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
+/* --- Select dropdowns --- */
+select {
+  font-family: inherit;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color var(--transition);
+}
+
+select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+  .app {
+    padding: 0 1rem 1rem;
+  }
+
+  header {
+    margin: 0 -1rem;
+    padding: 1.5rem 1rem 0.75rem;
+  }
+
+  header h1 {
+    font-size: 1.8rem;
+  }
+
+  .section-nav {
+    margin: 0 -1rem;
+    padding: 0 1rem;
+  }
+
+  section {
+    padding: 1rem;
+    border-radius: var(--radius-sm);
+  }
 }

@@ -52,7 +52,7 @@ export default function AdvisoryChat({ lat, lon }: Props) {
   };
 
   return (
-    <section>
+    <section id="advisory" className="accent-slate">
       <h2>AI Farm Advisory</h2>
 
       <div style={{

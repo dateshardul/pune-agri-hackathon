@@ -323,3 +323,60 @@ export interface ForecastResponse {
 export function getForecast(lat: number, lon: number) {
   return fetchJSON<ForecastResponse>(`${API_BASE}/data/forecast?lat=${lat}&lon=${lon}`);
 }
+
+// --- Smart Advisory (multi-model) ---
+
+export interface IrrigationWeek {
+  week: number;
+  date_range: string;
+  amount_mm: number;
+  crop_stage: string;
+  priority: 'critical' | 'recommended' | 'optional';
+}
+
+export interface FertilizerApplication {
+  timing: string;
+  day_after_sowing: number;
+  n_kg: number;
+  p_kg: number;
+  k_kg: number;
+  product_suggestion: string;
+}
+
+export interface SmartAdvisoryResponse {
+  crop: string;
+  location: { latitude: number; longitude: number };
+  yield_forecast: {
+    model: string;
+    yield_kg_ha: number;
+    growth_days: number;
+    confidence: string;
+  };
+  water_advisory: {
+    model: string;
+    total_water_need_mm: number;
+    irrigation_need_mm: number;
+    rain_contribution_mm: number;
+    drought_risk: string;
+    water_productivity_kg_m3: number;
+    schedule: IrrigationWeek[];
+  };
+  nutrient_advisory: {
+    model: string;
+    nitrogen_kg_ha: number;
+    phosphorus_kg_ha: number;
+    potassium_kg_ha: number;
+    applications: FertilizerApplication[];
+    soil_health_note: string;
+  };
+  recommendations: string[];
+  data_sources: Record<string, string>;
+}
+
+export function getSmartAdvisory(params: {
+  latitude: number;
+  longitude: number;
+  crop: string;
+}) {
+  return postJSON<SmartAdvisoryResponse>(`${API_BASE}/simulate/smart-advisory`, params);
+}

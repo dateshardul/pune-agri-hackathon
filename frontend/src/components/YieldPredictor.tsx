@@ -95,7 +95,7 @@ export default function YieldPredictor({ lat, lon, onSimulationResult }: Props) 
   const maxImp = topFeatures.length > 0 ? topFeatures[0].importance : 1;
 
   return (
-    <section>
+    <section id="yield" className="accent-green">
       <h2>Multi-Modal Yield Prediction</h2>
       <p>
         CropNet-inspired: compares physics simulation (WOFOST) with ML prediction

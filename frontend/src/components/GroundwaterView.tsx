@@ -173,7 +173,7 @@ export default function GroundwaterView({ lat, lon }: Props) {
   const extractionRatio = aquifer.stage_of_extraction_pct;
 
   return (
-    <section>
+    <section id="groundwater" className="accent-deep-blue">
       <h2>Groundwater & Crop Advisory</h2>
       <p>Water table tracking and water-smart crop recommendations ({lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E)</p>
 

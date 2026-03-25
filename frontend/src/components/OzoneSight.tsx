@@ -69,7 +69,7 @@ export default function OzoneSight({ lat, lon }: Props) {
   const sevLabel = severityLabels[severity] ?? severity.toUpperCase();
 
   return (
-    <section>
+    <section id="ozone" className="accent-purple">
       <h2>OzoneSight — Air Quality &amp; Crop Impact</h2>
       <p>How ground-level ozone affects your crops ({lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E)</p>
 
