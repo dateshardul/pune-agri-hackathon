@@ -245,6 +245,71 @@ export default function YieldPredictor({ lat, lon, onSimulationResult }: Props) 
             </div>
           )}
 
+          {/* Additional Model Insights (AquaCrop / DSSAT) */}
+          {result.model_insights && (result.model_insights.aquacrop || result.model_insights.dssat) && (
+            <div style={{ display: 'grid', gridTemplateColumns: result.model_insights.aquacrop && result.model_insights.dssat ? '1fr 1fr' : '1fr', gap: '1rem', marginBottom: '1rem' }}>
+              {result.model_insights.aquacrop && (
+                <div style={{ background: '#fff', padding: '1rem', borderRadius: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
+                    <span style={{
+                      background: '#0d9488', color: '#fff', fontSize: '0.7rem', fontWeight: 700,
+                      padding: '2px 8px', borderRadius: '4px',
+                    }}>AquaCrop</span>
+                    <span style={{ fontSize: '0.85rem', color: '#666' }}>Water Analysis</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.85rem' }}>
+                    <div>
+                      <div style={{ color: '#999', fontSize: '0.75rem' }}>Drought Risk</div>
+                      <div style={{ fontWeight: 600, color: result.model_insights.aquacrop.drought_risk === 'low' ? '#2e7d32' : result.model_insights.aquacrop.drought_risk === 'moderate' ? '#f57f17' : '#c62828' }}>
+                        {result.model_insights.aquacrop.drought_risk.charAt(0).toUpperCase() + result.model_insights.aquacrop.drought_risk.slice(1)}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#999', fontSize: '0.75rem' }}>Water Need</div>
+                      <div style={{ fontWeight: 600 }}>{result.model_insights.aquacrop.water_need_mm.toFixed(0)} mm</div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#999', fontSize: '0.75rem' }}>Irrigation Need</div>
+                      <div style={{ fontWeight: 600 }}>{result.model_insights.aquacrop.irrigation_need_mm.toFixed(0)} mm</div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#999', fontSize: '0.75rem' }}>Water Productivity</div>
+                      <div style={{ fontWeight: 600 }}>{result.model_insights.aquacrop.water_productivity.toFixed(2)} kg/m³</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {result.model_insights.dssat && (
+                <div style={{ background: '#fff', padding: '1rem', borderRadius: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
+                    <span style={{
+                      background: '#d97706', color: '#fff', fontSize: '0.7rem', fontWeight: 700,
+                      padding: '2px 8px', borderRadius: '4px',
+                    }}>DSSAT</span>
+                    <span style={{ fontSize: '0.85rem', color: '#666' }}>Nutrient Analysis</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', fontSize: '0.85rem' }}>
+                    <div>
+                      <div style={{ color: '#999', fontSize: '0.75rem' }}>Nitrogen</div>
+                      <div style={{ fontWeight: 600 }}>{result.model_insights.dssat.nitrogen_kg_ha.toFixed(0)} kg/ha</div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#999', fontSize: '0.75rem' }}>Phosphorus</div>
+                      <div style={{ fontWeight: 600 }}>{result.model_insights.dssat.phosphorus_kg_ha.toFixed(0)} kg/ha</div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#999', fontSize: '0.75rem' }}>Potassium</div>
+                      <div style={{ fontWeight: 600 }}>{result.model_insights.dssat.potassium_kg_ha.toFixed(0)} kg/ha</div>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#555', fontStyle: 'italic' }}>
+                    {result.model_insights.dssat.soil_health_note}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Data sources */}
           <div style={{ background: '#fff', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.8rem' }}>
             <strong>Data sources used: </strong>

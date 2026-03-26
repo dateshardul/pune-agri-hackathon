@@ -272,6 +272,20 @@ export interface PredictionComparison {
     yield_loss_percent: number;
     severity: string;
   };
+  model_insights?: {
+    aquacrop?: {
+      drought_risk: string;
+      water_need_mm: number;
+      irrigation_need_mm: number;
+      water_productivity: number;
+    };
+    dssat?: {
+      nitrogen_kg_ha: number;
+      phosphorus_kg_ha: number;
+      potassium_kg_ha: number;
+      soil_health_note: string;
+    };
+  };
   data_sources: Record<string, string>;
   extensibility_note: string;
 }

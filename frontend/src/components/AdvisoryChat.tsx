@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getCrops } from '../services/api';
 
 interface Props {
   lat: number;
@@ -20,6 +21,12 @@ export default function AdvisoryChat({ lat, lon }: Props) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [contextSummary, setContextSummary] = useState<string | null>(null);
+  const [crops, setCrops] = useState<Record<string, string>>({});
+  const [selectedCrop, setSelectedCrop] = useState('wheat');
+
+  useEffect(() => {
+    getCrops().then((c) => setCrops(c.crops)).catch(() => {});
+  }, []);
 
   // Reset chat when location changes
   useEffect(() => {
@@ -44,7 +51,7 @@ export default function AdvisoryChat({ lat, lon }: Props) {
       const res = await fetch('/api/advisory/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input.trim(), latitude: lat, longitude: lon }),
+        body: JSON.stringify({ message: input.trim(), latitude: lat, longitude: lon, crop: selectedCrop }),
       });
       const data = await res.json();
 
@@ -82,7 +89,7 @@ export default function AdvisoryChat({ lat, lon }: Props) {
           <strong>AI has context:</strong>{' '}
           {contextSummary
             ? contextSummary
-            : `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E — weather, soil, groundwater, ozone data`
+            : `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E, ${selectedCrop} — weather, soil, models`
           }
         </span>
       </div>
@@ -112,7 +119,19 @@ export default function AdvisoryChat({ lat, lon }: Props) {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: '0.5rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <select
+          value={selectedCrop}
+          onChange={(e) => setSelectedCrop(e.target.value)}
+          style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid #ccc', fontSize: '0.85rem' }}
+        >
+          {Object.keys(crops).length > 0
+            ? Object.keys(crops).map((c) => (
+                <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+              ))
+            : <option value="wheat">Wheat</option>
+          }
+        </select>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
