@@ -26,8 +26,7 @@ const PRESETS: LocationPreset[] = [
 
 const NAV_TABS = [
   { to: '/dashboard', label: 'Dashboard', color: '#1976d2' },
-  { to: '/terrain', label: '3D Terrain', color: '#1b5e20' },
-  { to: '/simulation', label: 'Crop Models', color: '#e65100' },
+  { to: '/simulation', label: 'Crop Simulation', color: '#1b5e20' },
   { to: '/environment', label: 'Environment', color: '#6a1b9a' },
   { to: '/advisory', label: 'Smart Advisory', color: '#00695c' },
 ];
@@ -143,17 +142,12 @@ function App() {
               element={<Dashboard lat={lat} lon={lon} onSimulationResult={setSimResult} />}
             />
             <Route
-              path="/terrain"
-              element={
-                <div id="terrain">
-                  <MapView lat={lat} lon={lon} simulationResult={simResult} />
-                </div>
-              }
-            />
-            <Route
               path="/simulation"
               element={
                 <>
+                  <div id="terrain">
+                    <MapView lat={lat} lon={lon} simulationResult={simResult} />
+                  </div>
                   <YieldPredictor lat={lat} lon={lon} onSimulationResult={setSimResult} />
                   <ScenarioExplorer lat={lat} lon={lon} onSimulationResult={setSimResult} />
                 </>

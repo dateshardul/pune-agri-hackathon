@@ -321,7 +321,7 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
               heightData: rawHeight,
               width: elevResult.width,
               height: elevResult.height,
-              heightScale: elevRange > 0 ? 8 / elevRange : 1,
+              heightScale: elevRange > 0 ? 3 / elevRange : 1,
             });
             elevMin = elevResult.min_elevation;
             elevMax = elevResult.max_elevation;
@@ -330,7 +330,7 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
             const seed = lat * 100 + lon;
             const heightData = generateSeededHeightmap(256, 256, seed);
             terrain = new TerrainMesh({
-              heightData, width: 256, height: 256, heightScale: 0.3,
+              heightData, width: 256, height: 256, heightScale: 0.1,
             });
           }
           terrainRef.current = terrain;

@@ -170,146 +170,163 @@ export default function SmartAdvisory({ lat, lon }: Props) {
       {result && (
         <div>
           {/* Summary Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', margin: '1rem 0' }}>
-            <div style={cardStyle}>
-              <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '4px' }}>Expected Yield</div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{yld!.yield_kg_ha.toLocaleString()}</div>
-              <div style={{ fontSize: '0.8rem', color: '#999' }}>kg/ha in {yld!.growth_days} days</div>
-              <div style={{ marginTop: '6px' }}><ModelBadge model={yld!.model} /></div>
-            </div>
-            <div style={cardStyle}>
-              <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '4px' }}>Water Needed</div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{water!.irrigation_need_mm}</div>
-              <div style={{ fontSize: '0.8rem', color: '#999' }}>mm irrigation ({water!.rain_contribution_mm} mm from rain)</div>
-              <div style={{ marginTop: '6px' }}><ModelBadge model={water!.model} /></div>
-            </div>
-            <div style={cardStyle}>
-              <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '4px' }}>Nitrogen Recommended</div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{nutrients!.nitrogen_kg_ha}</div>
-              <div style={{ fontSize: '0.8rem', color: '#999' }}>kg N/ha (P: {nutrients!.phosphorus_kg_ha}, K: {nutrients!.potassium_kg_ha})</div>
-              <div style={{ marginTop: '6px' }}><ModelBadge model={nutrients!.model} /></div>
-            </div>
+          <div style={{ display: 'grid', gridTemplateColumns: yld && water && nutrients ? '1fr 1fr 1fr' : water || nutrients ? '1fr 1fr' : '1fr', gap: '1rem', margin: '1rem 0' }}>
+            {yld && (
+              <div style={{ ...cardStyle, opacity: yld.yield_kg_ha > 0 ? 1 : 0.55 }}>
+                <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '4px' }}>Expected Yield</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>
+                  {yld.yield_kg_ha > 0 ? yld.yield_kg_ha.toLocaleString() : '—'}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#999' }}>
+                  {yld.yield_kg_ha > 0 ? `kg/ha in ${yld.growth_days} days` : 'Season in progress'}
+                </div>
+                <div style={{ marginTop: '6px' }}><ModelBadge model={yld.model} /></div>
+              </div>
+            )}
+            {water && (
+              <div style={cardStyle}>
+                <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '4px' }}>Water Needed</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{water.irrigation_need_mm}</div>
+                <div style={{ fontSize: '0.8rem', color: '#999' }}>mm irrigation ({water.rain_contribution_mm} mm from rain)</div>
+                <div style={{ marginTop: '6px' }}><ModelBadge model={water.model} /></div>
+              </div>
+            )}
+            {nutrients && (
+              <div style={cardStyle}>
+                <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '4px' }}>Nitrogen Recommended</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{nutrients.nitrogen_kg_ha}</div>
+                <div style={{ fontSize: '0.8rem', color: '#999' }}>kg N/ha (P: {nutrients.phosphorus_kg_ha}, K: {nutrients.potassium_kg_ha})</div>
+                <div style={{ marginTop: '6px' }}><ModelBadge model={nutrients.model} /></div>
+              </div>
+            )}
+            {!yld && !water && !nutrients && (
+              <div style={{ ...cardStyle, color: '#999' }}>No model results available for this crop.</div>
+            )}
           </div>
 
           {/* Drought Risk Indicator */}
-          {drought && (
+          {drought && water && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: '0.75rem',
               padding: '0.6rem 1rem', borderRadius: '8px',
               background: drought.bg, marginBottom: '1rem',
             }}>
               <span style={{ fontWeight: 600, color: drought.color, fontSize: '0.9rem' }}>
-                Drought Risk: {water!.drought_risk.charAt(0).toUpperCase() + water!.drought_risk.slice(1)}
+                Drought Risk: {water.drought_risk.charAt(0).toUpperCase() + water.drought_risk.slice(1)}
               </span>
               <span style={{ fontSize: '0.85rem', color: '#555' }}>
-                Water productivity: {water!.water_productivity_kg_m3.toFixed(2)} kg grain per m&sup3; water
+                Water productivity: {water.water_productivity_kg_m3.toFixed(2)} kg grain per m&sup3; water
               </span>
             </div>
           )}
 
           {/* Irrigation Schedule */}
-          <div style={{ background: '#fff', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1rem' }}>Irrigation Schedule</h3>
-              <ModelBadge model="AquaCrop" />
+          {water && water.schedule && (
+            <div style={{ background: '#fff', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1rem' }}>Irrigation Schedule</h3>
+                <ModelBadge model="AquaCrop" />
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Period</th>
+                    <th>Crop Stage</th>
+                    <th>Water (mm)</th>
+                    <th>Priority</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {water.schedule.filter((w: IrrigationWeek) => w.amount_mm > 0).map((w: IrrigationWeek) => {
+                    const pc = priorityColors[w.priority] ?? priorityColors.optional;
+                    return (
+                      <tr key={w.week}>
+                        <td>{w.date_range}</td>
+                        <td>{w.crop_stage}</td>
+                        <td><strong>{w.amount_mm}</strong> mm</td>
+                        <td>
+                          <span style={{
+                            padding: '2px 8px', borderRadius: '10px', fontSize: '0.75rem',
+                            fontWeight: 600, background: pc.bg, color: pc.color,
+                          }}>
+                            {w.priority}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem' }}>
+                Total irrigation: <strong>{water.irrigation_need_mm} mm</strong> | Rain: {water.rain_contribution_mm} mm |
+                Total need: {water.total_water_need_mm} mm
+              </div>
             </div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Period</th>
-                  <th>Crop Stage</th>
-                  <th>Water (mm)</th>
-                  <th>Priority</th>
-                </tr>
-              </thead>
-              <tbody>
-                {water!.schedule.filter((w: IrrigationWeek) => w.amount_mm > 0).map((w: IrrigationWeek) => {
-                  const pc = priorityColors[w.priority] ?? priorityColors.optional;
-                  return (
-                    <tr key={w.week}>
-                      <td>{w.date_range}</td>
-                      <td>{w.crop_stage}</td>
-                      <td><strong>{w.amount_mm}</strong> mm</td>
-                      <td>
-                        <span style={{
-                          padding: '2px 8px', borderRadius: '10px', fontSize: '0.75rem',
-                          fontWeight: 600, background: pc.bg, color: pc.color,
-                        }}>
-                          {w.priority}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem' }}>
-              Total irrigation: <strong>{water!.irrigation_need_mm} mm</strong> | Rain contribution: {water!.rain_contribution_mm} mm |
-              Total crop water need: {water!.total_water_need_mm} mm
-            </div>
-          </div>
+          )}
 
           {/* Nutrient Plan */}
-          <div style={{ background: '#fff', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1rem' }}>Nutrient Management Plan</h3>
-              <ModelBadge model="DSSAT" />
-            </div>
-
-            {/* NPK summary bar */}
-            <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '0.75rem' }}>
-              {[
-                { label: 'Nitrogen (N)', value: nutrients!.nitrogen_kg_ha, color: '#1565c0' },
-                { label: 'Phosphorus (P)', value: nutrients!.phosphorus_kg_ha, color: '#e65100' },
-                { label: 'Potassium (K)', value: nutrients!.potassium_kg_ha, color: '#6a1b9a' },
-              ].map((n) => (
-                <div key={n.label} style={{ flex: 1, textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#666' }}>{n.label}</div>
-                  <div style={{
-                    fontSize: '1.4rem', fontWeight: 'bold', color: n.color,
-                    margin: '2px 0',
-                  }}>
-                    {n.value}
-                  </div>
-                  <div style={{ fontSize: '0.7rem', color: '#999' }}>kg/ha</div>
-                </div>
-              ))}
-            </div>
-
-            <table>
-              <thead>
-                <tr>
-                  <th>When to Apply</th>
-                  <th>Day</th>
-                  <th>N</th>
-                  <th>P</th>
-                  <th>K</th>
-                  <th>Suggested Product</th>
-                </tr>
-              </thead>
-              <tbody>
-                {nutrients!.applications.map((a: FertilizerApplication, i: number) => (
-                  <tr key={i}>
-                    <td><strong>{a.timing}</strong></td>
-                    <td>Day {a.day_after_sowing}</td>
-                    <td>{a.n_kg} kg</td>
-                    <td>{a.p_kg} kg</td>
-                    <td>{a.k_kg} kg</td>
-                    <td style={{ fontSize: '0.85rem', color: '#555' }}>{a.product_suggestion}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {nutrients!.soil_health_note && (
-              <div style={{
-                marginTop: '0.75rem', padding: '0.6rem 0.75rem', borderRadius: '6px',
-                background: '#f1f8e9', fontSize: '0.85rem', color: '#33691e',
-              }}>
-                <strong>Soil health tip:</strong> {nutrients!.soil_health_note}
+          {nutrients && nutrients.applications && (
+            <div style={{ background: '#fff', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1rem' }}>Nutrient Management Plan</h3>
+                <ModelBadge model="DSSAT" />
               </div>
-            )}
-          </div>
+
+              {/* NPK summary bar */}
+              <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '0.75rem' }}>
+                {[
+                  { label: 'Nitrogen (N)', value: nutrients.nitrogen_kg_ha, color: '#1565c0' },
+                  { label: 'Phosphorus (P)', value: nutrients.phosphorus_kg_ha, color: '#e65100' },
+                  { label: 'Potassium (K)', value: nutrients.potassium_kg_ha, color: '#6a1b9a' },
+                ].map((n) => (
+                  <div key={n.label} style={{ flex: 1, textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#666' }}>{n.label}</div>
+                    <div style={{
+                      fontSize: '1.4rem', fontWeight: 'bold', color: n.color,
+                      margin: '2px 0',
+                    }}>
+                      {n.value}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#999' }}>kg/ha</div>
+                  </div>
+                ))}
+              </div>
+
+              <table>
+                <thead>
+                  <tr>
+                    <th>When to Apply</th>
+                    <th>Day</th>
+                    <th>N</th>
+                    <th>P</th>
+                    <th>K</th>
+                    <th>Suggested Product</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {nutrients.applications.map((a: FertilizerApplication, i: number) => (
+                    <tr key={i}>
+                      <td><strong>{a.timing}</strong></td>
+                      <td>Day {a.day_after_sowing}</td>
+                      <td>{a.n_kg} kg</td>
+                      <td>{a.p_kg} kg</td>
+                      <td>{a.k_kg} kg</td>
+                      <td style={{ fontSize: '0.85rem', color: '#555' }}>{a.product_suggestion}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {nutrients.soil_health_note && (
+                <div style={{
+                  marginTop: '0.75rem', padding: '0.6rem 0.75rem', borderRadius: '6px',
+                  background: '#f1f8e9', fontSize: '0.85rem', color: '#33691e',
+                }}>
+                  <strong>Soil health tip:</strong> {nutrients.soil_health_note}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Combined Recommendations */}
           {result.recommendations.length > 0 && (
