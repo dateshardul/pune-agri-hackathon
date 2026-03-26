@@ -16,6 +16,8 @@ from app.services.soilgrids import fetch_soil
 from app.services.ozone_sight import estimate_aot40, estimate_yield_loss
 from app.services.groundwater import fetch_groundwater_analysis
 from app.services.wofost import run_wofost, get_default_sowing_date, get_default_harvest_date
+from app.services.aquacrop_sim import AQUACROP_CROPS
+from app.services.dssat_sim import DSSAT_CROPS
 
 router = APIRouter()
 
@@ -127,6 +129,37 @@ async def predict_yield(req: SimulationRequest):
         else:
             agreement_pct = 0.0
 
+        # Run AquaCrop/DSSAT for additional model insights
+        model_insights: dict = {}
+
+        if req.crop in AQUACROP_CROPS and weather_resp and weather_resp.data:
+            try:
+                from app.services.aquacrop_sim import run_aquacrop
+                ac = run_aquacrop(req.latitude, req.longitude, weather_resp.data, req.crop, sowing)
+                wa = ac.get("water_advisory", {})
+                model_insights["aquacrop"] = {
+                    "drought_risk": wa.get("drought_risk"),
+                    "water_need_mm": wa.get("total_water_need_mm"),
+                    "irrigation_need_mm": wa.get("irrigation_need_mm"),
+                    "water_productivity": wa.get("water_productivity_kg_m3"),
+                }
+            except Exception as e:
+                model_insights["aquacrop"] = {"error": str(e)}
+
+        if req.crop in DSSAT_CROPS and weather_resp and weather_resp.data:
+            try:
+                from app.services.dssat_sim import run_dssat
+                ds = run_dssat(req.latitude, req.longitude, weather_resp.data, req.crop, sowing)
+                na = ds.get("nutrient_advisory", {})
+                model_insights["dssat"] = {
+                    "nitrogen_kg_ha": na.get("nitrogen_kg_ha"),
+                    "phosphorus_kg_ha": na.get("phosphorus_kg_ha"),
+                    "potassium_kg_ha": na.get("potassium_kg_ha"),
+                    "soil_health_note": na.get("soil_health_note"),
+                }
+            except Exception as e:
+                model_insights["dssat"] = {"error": str(e)}
+
         return {
             "wofost": wofost_result,
             "ml_prediction": ml_result,
@@ -136,6 +169,7 @@ async def predict_yield(req: SimulationRequest):
                 "agreement_pct": agreement_pct,
             },
             "ozone_impact": ozone_loss,
+            "model_insights": model_insights,
             "data_sources": data_sources,
             "extensibility_note": (
                 "This multi-modal architecture is designed to accept real observed yield data "

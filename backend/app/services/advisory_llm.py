@@ -56,9 +56,11 @@ _cached_context: str | None = None
 _cached_context_key: tuple[float, float] | None = None
 
 
-async def _build_farm_context(lat: float, lon: float) -> str:
-    """Fetch real-time farm data and build context string for Claude."""
+async def _build_farm_context(lat: float, lon: float, crop: str | None = None) -> str:
+    """Fetch real-time farm data + model outputs and build context string for Claude."""
     context_parts = []
+    weather_data = None  # reuse for model runs later
+    crop_for_models = crop or "rice"
 
     # Weather (latest days)
     try:
@@ -66,6 +68,7 @@ async def _build_farm_context(lat: float, lon: float) -> str:
         from datetime import date, timedelta
         weather = await fetch_weather(lat, lon, date.today() - timedelta(days=7), date.today())
         if weather and weather.data:
+            weather_data = weather  # save for model runs
             latest = weather.data[-1]
             context_parts.append(
                 f"Weather ({latest.date}): "
@@ -135,6 +138,59 @@ async def _build_farm_context(lat: float, lon: float) -> str:
     except Exception as e:
         logger.debug("Ozone context fetch failed: %s", e)
 
+    # ── Simulation model outputs (reuse weather data) ──
+    if weather_data and weather_data.data:
+        from datetime import date, timedelta
+
+        # WOFOST yield
+        try:
+            from app.services.wofost import run_wofost, get_default_sowing_date, get_default_harvest_date
+            sowing = get_default_sowing_date(crop_for_models)
+            harvest = get_default_harvest_date(crop_for_models, sowing)
+            # Fetch longer weather window for simulation
+            long_weather = await fetch_weather(lat, lon, sowing - timedelta(days=35),
+                                                min(harvest + timedelta(days=10), date.today() - timedelta(days=1)))
+            wofost_result = run_wofost(lat, lon, long_weather.data, crop_for_models, sowing, harvest)
+            twso = wofost_result.get("summary", {}).get("TWSO", 0)
+            if twso > 0:
+                context_parts.append(f"WOFOST yield prediction for {crop_for_models}: {twso:.0f} kg/ha")
+            else:
+                context_parts.append(f"WOFOST: {crop_for_models} season still in progress (not yet matured)")
+        except Exception as e:
+            logger.debug("WOFOST context failed: %s", e)
+
+        # AquaCrop water advisory
+        try:
+            from app.services.aquacrop_sim import run_aquacrop, AQUACROP_CROPS
+            if crop_for_models in AQUACROP_CROPS:
+                ac = run_aquacrop(lat, lon, long_weather.data, crop_for_models, sowing)
+                wa = ac.get("water_advisory", {})
+                context_parts.append(
+                    f"AquaCrop water analysis for {crop_for_models}: "
+                    f"total water need {wa.get('total_water_need_mm')}mm, "
+                    f"irrigation needed {wa.get('irrigation_need_mm')}mm, "
+                    f"drought risk: {wa.get('drought_risk')}, "
+                    f"water productivity: {wa.get('water_productivity_kg_m3')} kg/m³"
+                )
+        except Exception as e:
+            logger.debug("AquaCrop context failed: %s", e)
+
+        # DSSAT nutrient advisory
+        try:
+            from app.services.dssat_sim import run_dssat, DSSAT_CROPS
+            if crop_for_models in DSSAT_CROPS:
+                ds = run_dssat(lat, lon, long_weather.data, crop_for_models, sowing)
+                na = ds.get("nutrient_advisory", {})
+                context_parts.append(
+                    f"DSSAT nutrient recommendation for {crop_for_models}: "
+                    f"N {na.get('nitrogen_kg_ha')}kg/ha, "
+                    f"P {na.get('phosphorus_kg_ha')}kg/ha, "
+                    f"K {na.get('potassium_kg_ha')}kg/ha. "
+                    f"Soil note: {na.get('soil_health_note', '')}"
+                )
+        except Exception as e:
+            logger.debug("DSSAT context failed: %s", e)
+
     if context_parts:
         return (
             f"REAL-TIME FARM DATA for ({lat:.2f}°N, {lon:.2f}°E):\n"
@@ -197,6 +253,7 @@ async def get_advisory_response(
     user_message: str,
     latitude: float | None = None,
     longitude: float | None = None,
+    crop: str | None = None,
 ) -> tuple[str, str | None]:
     """Send user message to Claude and return (reply, context_summary).
 
@@ -217,9 +274,9 @@ async def get_advisory_response(
     # Build/cache farm context (fetch once per location, not per message)
     context_summary = None
     if latitude is not None and longitude is not None:
-        context_key = (round(latitude, 2), round(longitude, 2))
+        context_key = (round(latitude, 2), round(longitude, 2), crop or "")
         if _cached_context_key != context_key:
-            _cached_context = await _build_farm_context(latitude, longitude)
+            _cached_context = await _build_farm_context(latitude, longitude, crop)
             _cached_context_key = context_key
             logger.info("Built farm context for (%.2f, %.2f): %d chars",
                        latitude, longitude, len(_cached_context or ""))

@@ -12,6 +12,7 @@ class ChatRequest(BaseModel):
     message: str
     latitude: float | None = Field(None, description="Farm latitude for context")
     longitude: float | None = Field(None, description="Farm longitude for context")
+    crop: str | None = Field(None, description="Crop for model-aware advice")
 
 
 class ChatResponse(BaseModel):
@@ -27,7 +28,7 @@ async def chat(req: ChatRequest):
     (weather, soil, groundwater, ozone) and injects it as context.
     """
     reply, context_summary = await get_advisory_response(
-        req.message, req.latitude, req.longitude
+        req.message, req.latitude, req.longitude, req.crop
     )
     return ChatResponse(response=reply, context_summary=context_summary)
 
