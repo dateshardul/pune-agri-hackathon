@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
 import Dashboard from './components/Dashboard'
 import MapView from './components/MapView'
 import type { SimulationResult } from './services/api'
@@ -23,15 +24,12 @@ const PRESETS: LocationPreset[] = [
   { name: 'Nagpur', lat: 21.15, lon: 79.09 },
 ];
 
-const NAV_SECTIONS = [
-  { id: 'terrain', label: '3D Terrain', color: '#1b5e20' },
-  { id: 'dashboard', label: 'Dashboard', color: '#1976d2' },
-  { id: 'yield', label: 'Yield Predictor', color: '#2e7d32' },
-  { id: 'scenarios', label: 'Climate Explorer', color: '#e65100' },
-  { id: 'ozone', label: 'OzoneSight', color: '#6a1b9a' },
-  { id: 'groundwater', label: 'Groundwater', color: '#0277bd' },
-  { id: 'smart-advisory', label: 'Smart Advisory', color: '#00695c' },
-  { id: 'advisory', label: 'AI Chat', color: '#455a64' },
+const NAV_TABS = [
+  { to: '/dashboard', label: 'Dashboard', color: '#1976d2' },
+  { to: '/terrain', label: '3D Terrain', color: '#1b5e20' },
+  { to: '/simulation', label: 'Crop Models', color: '#e65100' },
+  { to: '/environment', label: 'Environment', color: '#6a1b9a' },
+  { to: '/advisory', label: 'Smart Advisory', color: '#00695c' },
 ];
 
 function useDebounced<T>(value: T, delay: number): T {
@@ -73,108 +71,116 @@ function App() {
   };
 
   const [simResult, setSimResult] = useState<SimulationResult | null>(null);
-  const [activeSection, setActiveSection] = useState('terrain');
 
   const activePreset = PRESETS.find(p => p.lat === lat && p.lon === lon);
 
-  // Track active section on scroll
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setActiveSection(entry.target.id);
-          }
-        }
-      },
-      { rootMargin: '-80px 0px -60% 0px', threshold: 0.1 }
-    );
-
-    for (const { id } of NAV_SECTIONS) {
-      const el = document.getElementById(id);
-      if (el) observer.observe(el);
-    }
-
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <div className="app">
-      <header>
-        <h1>KrishiTwin</h1>
-        <p>Climate-Resilient Digital Agriculture Platform</p>
+    <BrowserRouter>
+      <div className="app">
+        <header>
+          <h1>KrishiTwin</h1>
+          <p>Climate-Resilient Digital Agriculture Platform</p>
 
-        <div className="location-bar">
-          <div className="location-inputs">
-            <label>
-              Lat:
-              <input
-                type="number"
-                step="0.01"
-                value={latInput}
-                onChange={(e) => setLatInput(parseFloat(e.target.value) || 0)}
-              />
-            </label>
-            <label>
-              Lon:
-              <input
-                type="number"
-                step="0.01"
-                value={lonInput}
-                onChange={(e) => setLonInput(parseFloat(e.target.value) || 0)}
-              />
-            </label>
+          <div className="location-bar">
+            <div className="location-inputs">
+              <label>
+                Lat:
+                <input
+                  type="number"
+                  step="0.01"
+                  value={latInput}
+                  onChange={(e) => setLatInput(parseFloat(e.target.value) || 0)}
+                />
+              </label>
+              <label>
+                Lon:
+                <input
+                  type="number"
+                  step="0.01"
+                  value={lonInput}
+                  onChange={(e) => setLonInput(parseFloat(e.target.value) || 0)}
+                />
+              </label>
+            </div>
+            <div className="location-presets">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.name}
+                  onClick={() => selectPreset(p)}
+                  className={activePreset?.name === p.name ? 'preset-active' : ''}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+            {activePreset && (
+              <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.9)', fontWeight: 600 }}>
+                {activePreset.name}
+              </span>
+            )}
           </div>
-          <div className="location-presets">
-            {PRESETS.map((p) => (
-              <button
-                key={p.name}
-                onClick={() => selectPreset(p)}
-                className={activePreset?.name === p.name ? 'preset-active' : ''}
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
-          {activePreset && (
-            <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.9)', fontWeight: 600 }}>
-              {activePreset.name}
-            </span>
-          )}
-        </div>
-      </header>
+        </header>
 
-      {/* Sticky Section Navigation */}
-      <nav className="section-nav">
-        {NAV_SECTIONS.map(({ id, label, color }) => (
-          <a
-            key={id}
-            href={`#${id}`}
-            className={activeSection === id ? 'active' : ''}
-            onClick={(e) => {
-              e.preventDefault();
-              document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
-            }}
-          >
-            <span className="nav-dot" style={{ background: color }} />
-            {label}
-          </a>
-        ))}
-      </nav>
+        {/* Sticky Section Navigation */}
+        <nav className="section-nav">
+          {NAV_TABS.map(({ to, label, color }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) => isActive ? 'active' : ''}
+            >
+              <span className="nav-dot" style={{ background: color }} />
+              {label}
+            </NavLink>
+          ))}
+        </nav>
 
-      <main>
-        <div id="terrain">
-          <MapView lat={lat} lon={lon} simulationResult={simResult} />
-        </div>
-        <Dashboard lat={lat} lon={lon} onSimulationResult={setSimResult} />
-        <YieldPredictor lat={lat} lon={lon} onSimulationResult={setSimResult} />
-        <ScenarioExplorer lat={lat} lon={lon} onSimulationResult={setSimResult} />
-        <OzoneSight lat={lat} lon={lon} />
-        <GroundwaterView lat={lat} lon={lon} />
-        <SmartAdvisory lat={lat} lon={lon} />
-        <AdvisoryChat lat={lat} lon={lon} />
-      </main>
-    </div>
+        <main>
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route
+              path="/dashboard"
+              element={<Dashboard lat={lat} lon={lon} onSimulationResult={setSimResult} />}
+            />
+            <Route
+              path="/terrain"
+              element={
+                <div id="terrain">
+                  <MapView lat={lat} lon={lon} simulationResult={simResult} />
+                </div>
+              }
+            />
+            <Route
+              path="/simulation"
+              element={
+                <>
+                  <YieldPredictor lat={lat} lon={lon} onSimulationResult={setSimResult} />
+                  <ScenarioExplorer lat={lat} lon={lon} onSimulationResult={setSimResult} />
+                </>
+              }
+            />
+            <Route
+              path="/environment"
+              element={
+                <>
+                  <OzoneSight lat={lat} lon={lon} />
+                  <GroundwaterView lat={lat} lon={lon} />
+                </>
+              }
+            />
+            <Route
+              path="/advisory"
+              element={
+                <>
+                  <SmartAdvisory lat={lat} lon={lon} />
+                  <AdvisoryChat lat={lat} lon={lon} />
+                </>
+              }
+            />
+          </Routes>
+        </main>
+      </div>
+    </BrowserRouter>
   )
 }
 

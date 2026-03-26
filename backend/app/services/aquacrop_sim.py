@@ -84,6 +84,11 @@ def _build_weather_df(
         "ReferenceET": ets,
         "Date": pd.to_datetime(dates),
     })
+
+    # AquaCrop divides by ET0 internally (biomass_accumulation.py) — zero causes
+    # ZeroDivisionError.  Floor at 0.1 mm/day which is physically reasonable.
+    df["ReferenceET"] = df["ReferenceET"].clip(lower=0.1)
+
     # Ensure column order matches AquaCrop expectation
     return df[["MinTemp", "MaxTemp", "Precipitation", "ReferenceET", "Date"]]
 
@@ -143,13 +148,25 @@ def run_aquacrop(
     sim_start = sowing_date - timedelta(days=120)
     sim_end = sowing_date + timedelta(days=duration + 60)
 
-    # Cap to available weather
+    # Cap to available weather, padding if needed so the full season is covered
     weather_start = wdf["Date"].min().date()
     weather_end = wdf["Date"].max().date()
     if sim_start < weather_start:
         sim_start = weather_start
     if sim_end > weather_end:
-        sim_end = weather_end
+        # Pad weather by repeating last 30 days cyclically (covers near-future gap)
+        gap_days = (sim_end - weather_end).days
+        if gap_days <= 90:
+            tail = wdf.tail(30).copy()
+            pad_rows = []
+            for i in range(1, gap_days + 1):
+                src = tail.iloc[i % len(tail)].copy()
+                src["Date"] = pd.Timestamp(weather_end + timedelta(days=i))
+                pad_rows.append(src)
+            if pad_rows:
+                wdf = pd.concat([wdf, pd.DataFrame(pad_rows)], ignore_index=True)
+        else:
+            sim_end = weather_end
 
     # Planting date as MM/DD string
     planting_str = f"{sowing_date.month:02d}/{sowing_date.day:02d}"
@@ -182,14 +199,20 @@ def run_aquacrop(
         raise RuntimeError("AquaCrop simulation produced no results")
 
     row = sim_results.iloc[0]
-    dry_yield = float(row.get("Dry yield (tonne/ha)", 0))
-    fresh_yield = float(row.get("Fresh yield (tonne/ha)", 0))
-    yield_potential = float(row.get("Yield potential (tonne/ha)", 0))
-    seasonal_irrigation = float(row.get("Seasonal irrigation (mm)", 0))
+
+    def _safe_float(val, default=0.0):
+        """Convert to float, treating NaN/None as default."""
+        v = float(val) if val is not None else default
+        return default if math.isnan(v) else v
+
+    dry_yield = _safe_float(row.get("Dry yield (tonne/ha)", 0))
+    fresh_yield = _safe_float(row.get("Fresh yield (tonne/ha)", 0))
+    yield_potential = _safe_float(row.get("Yield potential (tonne/ha)", 0))
+    seasonal_irrigation = _safe_float(row.get("Seasonal irrigation (mm)", 0))
 
     # Water productivity calculation
-    total_precip = float(wdf["Precipitation"].sum())
-    total_et = float(wdf["ReferenceET"].sum())
+    total_precip = _safe_float(wdf["Precipitation"].sum())
+    total_et = _safe_float(wdf["ReferenceET"].sum())
     effective_water = total_precip + irrigation_mm
     water_productivity = (
         round(dry_yield * 1000 / effective_water, 2)
