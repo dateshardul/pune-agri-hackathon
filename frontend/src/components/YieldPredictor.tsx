@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getCrops, runPrediction, type PredictionComparison, type FeatureImportance, type SimulationResult } from '../services/api';
 
 interface Props {
@@ -52,6 +53,7 @@ function FeatureBar({ item, maxImportance }: { item: FeatureImportance; maxImpor
 }
 
 export default function YieldPredictor({ lat, lon, onSimulationResult }: Props) {
+  const navigate = useNavigate();
   const [crops, setCrops] = useState<Record<string, string>>({});
   const [selectedCrop, setSelectedCrop] = useState('wheat');
   const [result, setResult] = useState<PredictionComparison | null>(null);
@@ -85,8 +87,10 @@ export default function YieldPredictor({ lat, lon, onSimulationResult }: Props) 
 
   const comp = result?.comparison;
   const ml = result?.ml_prediction;
+  const wofostIncomplete = !comp || comp.wofost_yield_kg_ha === 0 || comp.wofost_yield_kg_ha == null;
   const agreementColor = comp
-    ? comp.agreement_pct > 85 ? '#2e7d32'
+    ? wofostIncomplete ? '#999'
+      : comp.agreement_pct > 85 ? '#2e7d32'
       : comp.agreement_pct > 70 ? '#f57f17'
       : '#c62828'
     : '#666';
@@ -125,12 +129,21 @@ export default function YieldPredictor({ lat, lon, onSimulationResult }: Props) 
         <div>
           {/* Comparison cards */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', margin: '1rem 0' }}>
-            <div style={cardStyle}>
+            <div style={{ ...cardStyle, opacity: wofostIncomplete ? 0.55 : 1 }}>
               <div style={{ fontSize: '0.85rem', color: '#666' }}>WOFOST (Physics Model)</div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>
-                {comp.wofost_yield_kg_ha > 0 ? comp.wofost_yield_kg_ha.toFixed(0) : '—'}
-              </div>
-              <div style={{ fontSize: '0.8rem', color: '#999' }}>kg/ha</div>
+              {wofostIncomplete ? (
+                <>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#999' }}>Season in progress</div>
+                  <div style={{ fontSize: '0.8rem', color: '#aaa' }}>Crop hasn't reached maturity yet</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>
+                    {comp.wofost_yield_kg_ha.toFixed(0)}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#999' }}>kg/ha</div>
+                </>
+              )}
               <div style={{ fontSize: '0.7rem', color: '#aaa', marginTop: '4px' }}>
                 Mechanistic crop growth model
               </div>
@@ -149,14 +162,23 @@ export default function YieldPredictor({ lat, lon, onSimulationResult }: Props) 
             </div>
             <div style={cardStyle}>
               <div style={{ fontSize: '0.85rem', color: '#666' }}>Model Agreement</div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: agreementColor }}>
-                {comp.agreement_pct.toFixed(0)}%
-              </div>
-              <div style={{ fontSize: '0.8rem', color: '#999' }}>
-                {comp.agreement_pct > 85 ? 'High confidence'
-                  : comp.agreement_pct > 70 ? 'Moderate confidence'
-                  : 'Models diverge — investigate factors'}
-              </div>
+              {wofostIncomplete ? (
+                <>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#999' }}>N/A</div>
+                  <div style={{ fontSize: '0.8rem', color: '#aaa' }}>WOFOST season incomplete</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: agreementColor }}>
+                    {comp.agreement_pct.toFixed(0)}%
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#999' }}>
+                    {comp.agreement_pct > 85 ? 'High confidence'
+                      : comp.agreement_pct > 70 ? 'Moderate confidence'
+                      : 'Models diverge — investigate factors'}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -265,6 +287,17 @@ export default function YieldPredictor({ lat, lon, onSimulationResult }: Props) 
               </p>
             </div>
           </details>
+
+          <button
+            onClick={() => navigate('/terrain')}
+            style={{
+              marginTop: '1rem', padding: '8px 20px', borderRadius: '6px',
+              background: '#2e7d32', color: '#fff', border: 'none',
+              cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem',
+            }}
+          >
+            View Growth on Terrain &rarr;
+          </button>
         </div>
       )}
     </section>

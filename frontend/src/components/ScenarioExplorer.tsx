@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   getCrops, getPresetScenarios, runScenario,
   type PresetScenario, type ScenarioResult, type SimulationResult,
@@ -13,6 +14,7 @@ interface Props {
 const cardStyle = { background: '#fff', padding: '1rem', borderRadius: '8px', textAlign: 'center' as const };
 
 export default function ScenarioExplorer({ lat, lon, onSimulationResult }: Props) {
+  const navigate = useNavigate();
   const [crops, setCrops] = useState<Record<string, string>>({});
   const [presets, setPresets] = useState<PresetScenario[]>([]);
   const [selectedCrop, setSelectedCrop] = useState('rice');
@@ -184,6 +186,17 @@ export default function ScenarioExplorer({ lat, lon, onSimulationResult }: Props
               </tbody>
             </table>
           </details>
+
+          <button
+            onClick={() => navigate('/terrain')}
+            style={{
+              marginTop: '1rem', padding: '8px 20px', borderRadius: '6px',
+              background: '#2e7d32', color: '#fff', border: 'none',
+              cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem',
+            }}
+          >
+            View Growth on Terrain &rarr;
+          </button>
         </div>
       )}
     </section>

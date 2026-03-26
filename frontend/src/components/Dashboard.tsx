@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getWeather, getSoil, getForecast, runSimulation, type WeatherResponse, type SoilResponse, type SimulationResult, type ForecastResponse } from '../services/api';
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 const cardStyle = { background: '#fff', padding: '1rem', borderRadius: '8px' } as const;
 
 export default function Dashboard({ lat, lon, onSimulationResult }: Props) {
+  const navigate = useNavigate();
   const [weather, setWeather] = useState<WeatherResponse | null>(null);
   const [forecast, setForecast] = useState<ForecastResponse | null>(null);
   const [soil, setSoil] = useState<SoilResponse | null>(null);
@@ -282,6 +284,17 @@ export default function Dashboard({ lat, lon, onSimulationResult }: Props) {
                 </div>
               </details>
             )}
+
+            <button
+              onClick={() => navigate('/terrain')}
+              style={{
+                marginTop: '0.75rem', padding: '8px 20px', borderRadius: '6px',
+                background: '#2e7d32', color: '#fff', border: 'none',
+                cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem',
+              }}
+            >
+              View Growth on Terrain &rarr;
+            </button>
           </div>
         )}
       </div>
