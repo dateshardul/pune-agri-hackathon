@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Props {
   lat: number;
@@ -14,11 +14,23 @@ export default function AdvisoryChat({ lat, lon }: Props) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Welcome to KrishiTwin AI Advisory. I can help with crop selection, irrigation scheduling, pest management, and climate adaptation strategies for your farm. What would you like to know?',
+      content: 'Welcome to KrishiTwin AI Advisory. I have access to your real-time farm data — weather, soil, groundwater, and ozone conditions. Ask me about crop selection, irrigation, pest management, or climate adaptation.',
     },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [contextSummary, setContextSummary] = useState<string | null>(null);
+
+  // Reset chat when location changes
+  useEffect(() => {
+    setMessages([{
+      role: 'assistant',
+      content: 'Welcome to KrishiTwin AI Advisory. I have access to your real-time farm data — weather, soil, groundwater, and ozone conditions. Ask me about crop selection, irrigation, pest management, or climate adaptation.',
+    }]);
+    setContextSummary(null);
+    // Reset backend conversation history
+    fetch('/api/advisory/reset', { method: 'POST' }).catch(() => {});
+  }, [lat, lon]);
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
@@ -36,9 +48,13 @@ export default function AdvisoryChat({ lat, lon }: Props) {
       });
       const data = await res.json();
 
+      if (data.context_summary && !contextSummary) {
+        setContextSummary(data.context_summary);
+      }
+
       const assistantMsg: Message = {
         role: 'assistant',
-        content: data.response ?? data.message ?? 'Advisory service coming soon. This will be powered by Claude AI with access to your farm data, weather forecasts, and crop simulation results.',
+        content: data.response ?? data.message ?? 'Advisory service coming soon.',
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } catch {
@@ -54,6 +70,22 @@ export default function AdvisoryChat({ lat, lon }: Props) {
   return (
     <section id="advisory" className="accent-slate">
       <h2>AI Farm Advisory</h2>
+
+      {/* Context indicator */}
+      <div style={{
+        background: '#e8f5e9', padding: '8px 12px', borderRadius: '6px',
+        fontSize: '0.8rem', color: '#2e7d32', marginBottom: '0.75rem',
+        display: 'flex', alignItems: 'center', gap: '6px',
+      }}>
+        <span style={{ fontSize: '1rem' }}>🌾</span>
+        <span>
+          <strong>AI has context:</strong>{' '}
+          {contextSummary
+            ? contextSummary
+            : `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E — weather, soil, groundwater, ozone data`
+          }
+        </span>
+      </div>
 
       <div style={{
         background: '#fff', borderRadius: '8px', padding: '1rem',
