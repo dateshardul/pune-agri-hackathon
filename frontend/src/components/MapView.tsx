@@ -25,6 +25,7 @@ interface OverlayInfo {
   dataRange: [number, number];
   unit: string;
   gradientCSS: string;
+  stops: string[]; // Farmer-friendly legend labels
 }
 
 const OVERLAYS: OverlayInfo[] = [
@@ -35,6 +36,7 @@ const OVERLAYS: OverlayInfo[] = [
     dataRange: [0.2, 0.9],
     unit: '',
     gradientCSS: 'linear-gradient(to right, #a50026, #f46d43, #fee08b, #a6d96a, #1a9850, #006837)',
+    stops: ['Stressed', 'Moderate', 'Healthy', 'Vigorous'],
   },
   {
     label: 'Soil Moisture',
@@ -43,6 +45,7 @@ const OVERLAYS: OverlayInfo[] = [
     dataRange: [0.1, 0.6],
     unit: '',
     gradientCSS: 'linear-gradient(to right, #00ffff, #8080ff, #ff00ff)',
+    stops: ['Dry', 'Adequate', 'Wet', 'Saturated'],
   },
   {
     label: 'Ozone Damage',
@@ -51,6 +54,7 @@ const OVERLAYS: OverlayInfo[] = [
     dataRange: [0, 15],
     unit: '% crop loss',
     gradientCSS: 'linear-gradient(to right, #000000, #e50000, #ff8c00, #ffff00, #ffffff)',
+    stops: ['None', 'Low', 'Moderate', 'Severe'],
   },
 ];
 
@@ -234,7 +238,7 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
   const playerRef = useRef<TimeSeriesPlayer | null>(null);
 
   // Store simulation overlay frame sets keyed by overlay type
-  const overlayFramesRef = useRef<Record<string, { frames: Float32Array[], config: OverlayConfig }>>({});
+  const overlayFramesRef = useRef<Record<string, { frames: Float32Array[], config: OverlayConfig, series?: { time: unknown, value: number }[] }>>({});
   // Track which overlay type the current player is showing ('lai' default, or overlay type)
   const activeSimOverlayRef = useRef<string>('lai');
 
@@ -548,24 +552,30 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
 
     if (laiSeries.length === 0) return;
 
+    // Auto-compute colormap ranges from actual data for visible animation
+    const laiMax = Math.max(1, ...laiSeries.map(s => s.value));
     const laiFrames = SimulationOverlayBuilder.buildFrames(laiSeries, gridOpts);
-    const laiConfig: OverlayConfig = { colormap: { name: 'rdylgn', min: 0, max: 7 }, dataWidth: 64, dataHeight: 64 };
+    const laiConfig: OverlayConfig = { colormap: { name: 'rdylgn', min: 0, max: laiMax }, dataWidth: 64, dataHeight: 64 };
 
-    // Store all frame sets
+    // Store all frame sets with data-driven ranges
     overlayFramesRef.current = {
-      lai: { frames: laiFrames, config: laiConfig },
+      lai: { frames: laiFrames, config: laiConfig, series: laiSeries },
     };
 
     if (tagpSeries.length > 0) {
+      const tagpMax = Math.max(1, ...tagpSeries.map(s => s.value));
       overlayFramesRef.current.ndvi = {
         frames: SimulationOverlayBuilder.buildFrames(tagpSeries, gridOpts),
-        config: { colormap: { name: 'rdylgn', min: 0, max: 8000 }, dataWidth: 64, dataHeight: 64 },
+        config: { colormap: { name: 'rdylgn', min: 0, max: tagpMax }, dataWidth: 64, dataHeight: 64 },
+        series: tagpSeries,
       };
     }
     if (smSeries.length > 0) {
+      const smMax = Math.max(0.01, ...smSeries.map(s => s.value));
       overlayFramesRef.current.soil_moisture = {
         frames: SimulationOverlayBuilder.buildFrames(smSeries, gridOpts),
-        config: { colormap: { name: 'cool', min: 0, max: 0.5 }, dataWidth: 64, dataHeight: 64 },
+        config: { colormap: { name: 'cool', min: 0, max: smMax }, dataWidth: 64, dataHeight: 64 },
+        series: smSeries,
       };
     }
 
@@ -777,6 +787,19 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
               <span style={{ minWidth: '80px', textAlign: 'right' }}>
                 Day {simFrame + 1} / {simTotal}
               </span>
+              {/* Show current metric value */}
+              {(() => {
+                const key = activeSimOverlayRef.current || 'lai';
+                const entry = overlayFramesRef.current[key];
+                const val = entry?.series?.[simFrame]?.value;
+                const labels: Record<string, string> = { lai: 'LAI', ndvi: 'Biomass', soil_moisture: 'SM' };
+                const units: Record<string, string> = { lai: '', ndvi: ' kg/ha', soil_moisture: '' };
+                return val != null ? (
+                  <span style={{ minWidth: '90px', textAlign: 'right', color: '#4caf50', fontWeight: 600 }}>
+                    {labels[key] ?? key}: {val.toFixed(1)}{units[key] ?? ''}
+                  </span>
+                ) : null;
+              })()}
               <div style={{
                 height: '10px', width: '80px', borderRadius: '3px',
                 background: activeOverlay
@@ -808,9 +831,10 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
                   height: '12px', borderRadius: '3px',
                   background: activeInfo.gradientCSS, marginBottom: '4px',
                 }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem' }}>
-                  <span>{activeInfo.dataRange[0]}{activeInfo.unit ? ` ${activeInfo.unit}` : ''}</span>
-                  <span>{activeInfo.dataRange[1]}{activeInfo.unit ? ` ${activeInfo.unit}` : ''}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem' }}>
+                  {activeInfo.stops.map((stop, i) => (
+                    <span key={i}>{stop}</span>
+                  ))}
                 </div>
                 <div style={{ fontSize: '0.65rem', color: '#999', marginTop: '4px' }}>
                   {activeOverlay && overlayFramesRef.current[activeOverlay]

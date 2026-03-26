@@ -139,7 +139,7 @@ function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route
               path="/dashboard"
-              element={<Dashboard lat={lat} lon={lon} onSimulationResult={setSimResult} />}
+              element={<Dashboard lat={lat} lon={lon} />}
             />
             <Route
               path="/simulation"

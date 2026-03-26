@@ -176,6 +176,9 @@ export default function GroundwaterView({ lat, lon }: Props) {
     <section id="groundwater" className="accent-deep-blue">
       <h2>Groundwater & Crop Advisory</h2>
       <p>Water table tracking and water-smart crop recommendations ({lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E)</p>
+      <p style={{ fontSize: '0.8rem', color: '#666', margin: '0 0 0.5rem' }}>
+        Aquifer data is location-based (same for all crops). Crop viability below is derived from water availability at this location.
+      </p>
 
       {/* Aquifer Status Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0.75rem', marginTop: '1rem' }}>

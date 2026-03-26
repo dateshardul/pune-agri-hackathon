@@ -73,15 +73,18 @@ export default function OzoneSight({ lat, lon }: Props) {
       <h2>OzoneSight — Air Quality &amp; Crop Impact</h2>
       <p>How ground-level ozone affects your crops ({lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E)</p>
 
-      <label>
-        Crop:
+      <label style={{ fontWeight: 600, fontSize: '1rem' }}>
+        Analyzing for:
         <select value={selectedCrop} onChange={(e) => handleCropChange(e.target.value)}
-          style={{ marginLeft: '0.5rem', padding: '4px 8px' }}>
+          style={{ marginLeft: '0.5rem', padding: '6px 12px', fontSize: '1rem', fontWeight: 600, borderRadius: '6px', border: '2px solid #6a1b9a' }}>
           {crops.map((c) => (
             <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
           ))}
         </select>
       </label>
+      <span style={{ fontSize: '0.8rem', color: '#666' }}>
+        (Ozone damage thresholds vary by crop — changing the crop recalculates yield impact)
+      </span>
 
       {loading && <p>Loading ozone analysis...</p>}
       {error && <p style={{ color: '#c62828' }}>Error: {error}</p>}
