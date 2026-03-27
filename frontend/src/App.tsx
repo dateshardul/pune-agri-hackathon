@@ -9,6 +9,7 @@ import GroundwaterView from './components/GroundwaterView'
 import YieldPredictor from './components/YieldPredictor'
 import AdvisoryChat from './components/AdvisoryChat'
 import SmartAdvisory from './components/SmartAdvisory'
+import SowingOptimizer from './components/SowingOptimizer'
 import './App.css'
 
 interface LocationPreset {
@@ -145,6 +146,7 @@ function App() {
               path="/simulation"
               element={
                 <>
+                  <SowingOptimizer lat={lat} lon={lon} />
                   <div id="terrain">
                     <MapView lat={lat} lon={lon} simulationResult={simResult} />
                   </div>

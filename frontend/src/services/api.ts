@@ -394,3 +394,44 @@ export function getSmartAdvisory(params: {
 }) {
   return postJSON<SmartAdvisoryResponse>(`${API_BASE}/simulate/smart-advisory`, params);
 }
+
+// --- Sowing Optimizer ---
+
+export interface SowingOptimizerResponse {
+  crop: string;
+  location: { latitude: number; longitude: number };
+  analysis: {
+    best_season: {
+      season: string;
+      reason: string;
+      all_seasons: Array<{ season: string; suitability: string }>;
+    };
+    best_month: {
+      month: string;
+      reason: string;
+      all_months: Array<{ month: string; score: number; risk: string; note: string }>;
+    };
+    best_week: {
+      period: string;
+      reason: string;
+      all_weeks: Array<{ period: string; score: number; yield_kg_ha: number; risk: string; recommended: boolean }>;
+    };
+    optimal_period: {
+      start: string;
+      end: string;
+      expected_yield_kg_ha: number;
+      vs_standard_pct: string;
+      risk_level: string;
+    };
+  };
+  factors_considered: string[];
+  weather_source: string;
+}
+
+export function optimizeSowing(params: {
+  latitude: number;
+  longitude: number;
+  crop: string;
+}) {
+  return postJSON<SowingOptimizerResponse>(`${API_BASE}/simulate/sowing-optimizer`, params);
+}
