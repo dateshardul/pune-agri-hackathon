@@ -372,7 +372,11 @@ async def _score_single_week(
             sowing_date=sowing, harvest_date=harvest,
             elevation=elevation,
         )
-        yield_kg_ha = wofost.get("summary", {}).get("TWSO", 0) or 0
+        summary = wofost.get("summary", {})
+        # TWSO = grain; if 0 (DVS didn't reach maturity), use TAGP as proxy
+        yield_kg_ha = summary.get("TWSO", 0) or 0
+        if yield_kg_ha == 0:
+            yield_kg_ha = (summary.get("TAGP", 0) or 0) * 0.45  # harvest index
         scores["yield"] = yield_kg_ha
     except Exception as e:
         logger.debug("WOFOST failed for %s: %s", sowing, e)
