@@ -68,6 +68,8 @@ FEATURE_NAMES = [
     "crop_group", "water_requirement", "base_yield",
     # Location (3)
     "latitude", "longitude", "elevation",
+    # Model outputs — distilled from WOFOST/AquaCrop/DSSAT (3)
+    "wofost_yield_estimate", "aquacrop_water_productivity", "dssat_n_stress",
 ]
 
 FEATURE_SOURCES = {
@@ -81,6 +83,8 @@ FEATURE_SOURCES = {
     "gw_depth_m": "stress",
     "crop_group": "crop", "water_requirement": "crop", "base_yield": "crop",
     "latitude": "location", "longitude": "location", "elevation": "location",
+    "wofost_yield_estimate": "model_output", "aquacrop_water_productivity": "model_output",
+    "dssat_n_stress": "model_output",
 }
 
 FEATURE_LABELS = {
@@ -109,6 +113,9 @@ FEATURE_LABELS = {
     "latitude": "Latitude",
     "longitude": "Longitude",
     "elevation": "Elevation (m)",
+    "wofost_yield_estimate": "WOFOST Yield Estimate (kg/ha)",
+    "aquacrop_water_productivity": "AquaCrop Water Productivity (kg/m³)",
+    "dssat_n_stress": "DSSAT N Stress Factor",
 }
 
 
@@ -174,8 +181,11 @@ def extract_features(
     ozone_loss_pct: float = 0.0,
     gw_extraction_stage: float = 50.0,
     gw_depth_m: float = 10.0,
+    wofost_yield_estimate: float = 0.0,
+    aquacrop_water_productivity: float = 0.0,
+    dssat_n_stress: float = 0.5,
 ) -> dict[str, float]:
-    """Extract ~25 features from multi-modal raw data."""
+    """Extract 28 features from multi-modal raw data + model outputs."""
 
     # ── Weather features ──
     temps_max = [d.get("temperature_max") or 30.0 for d in weather_data]
@@ -245,6 +255,9 @@ def extract_features(
         "latitude": lat,
         "longitude": lon,
         "elevation": elevation,
+        "wofost_yield_estimate": round(wofost_yield_estimate, 1),
+        "aquacrop_water_productivity": round(aquacrop_water_productivity, 3),
+        "dssat_n_stress": round(dssat_n_stress, 3),
     }
 
 
@@ -312,6 +325,15 @@ class CropYieldPredictor:
             if gw_stage > 100:
                 yield_val *= max(0.6, 1.0 - 0.003 * (gw_stage - 100))
 
+            # Simulate model output features (what WOFOST/AquaCrop/DSSAT would produce)
+            # WOFOST yield estimate — correlated with actual yield + noise
+            wofost_est = yield_val * rng.uniform(0.7, 1.3)
+            # AquaCrop water productivity — kg yield per m³ water (typically 0.5-3.0)
+            aquacrop_wp = (yield_val / max(precip + 100, 1)) * rng.uniform(0.8, 1.2)
+            aquacrop_wp = min(5.0, max(0.1, aquacrop_wp))
+            # DSSAT N stress — 0 = no stress, 1 = severe (inversely related to yield)
+            dssat_ns = max(0.0, min(1.0, 1.0 - (yield_val / base) + rng.normal(0, 0.1)))
+
             # Add noise (8% CV)
             yield_val *= (1.0 + rng.normal(0, 0.08))
             yield_val = max(50, yield_val)
@@ -323,6 +345,7 @@ class CropYieldPredictor:
                 ozone_loss, gw_stage, gw_depth,
                 crop_group, water_need, base,
                 lat, lon, elev,
+                wofost_est, aquacrop_wp, dssat_ns,
             ]
             y[i] = yield_val
 

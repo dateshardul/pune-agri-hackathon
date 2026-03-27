@@ -1,15 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
-import Dashboard from './components/Dashboard'
-import MapView from './components/MapView'
-import type { SimulationResult } from './services/api'
-import ScenarioExplorer from './components/ScenarioExplorer'
+import FarmAnalysis from './components/FarmAnalysis'
 import OzoneSight from './components/OzoneSight'
 import GroundwaterView from './components/GroundwaterView'
-import YieldPredictor from './components/YieldPredictor'
 import AdvisoryChat from './components/AdvisoryChat'
-import SmartAdvisory from './components/SmartAdvisory'
-import SowingOptimizer from './components/SowingOptimizer'
 import './App.css'
 
 interface LocationPreset {
@@ -26,10 +20,9 @@ const PRESETS: LocationPreset[] = [
 ];
 
 const NAV_TABS = [
-  { to: '/dashboard', label: 'Dashboard', color: '#1976d2' },
-  { to: '/simulation', label: 'Crop Simulation', color: '#1b5e20' },
-  { to: '/environment', label: 'Environment', color: '#6a1b9a' },
-  { to: '/advisory', label: 'Smart Advisory', color: '#00695c' },
+  { to: '/analysis', label: 'Farm Analysis', color: '#1b5e20' },
+  { to: '/environment', label: 'Environment Details', color: '#6a1b9a' },
+  { to: '/chat', label: 'AI Chat', color: '#00695c' },
 ];
 
 function useDebounced<T>(value: T, delay: number): T {
@@ -69,8 +62,6 @@ function App() {
     setLat(p.lat);
     setLon(p.lon);
   };
-
-  const [simResult, setSimResult] = useState<SimulationResult | null>(null);
 
   const activePreset = PRESETS.find(p => p.lat === lat && p.lon === lon);
 
@@ -137,24 +128,8 @@ function App() {
 
         <main>
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route
-              path="/dashboard"
-              element={<Dashboard lat={lat} lon={lon} />}
-            />
-            <Route
-              path="/simulation"
-              element={
-                <>
-                  <SowingOptimizer lat={lat} lon={lon} />
-                  <div id="terrain">
-                    <MapView lat={lat} lon={lon} simulationResult={simResult} />
-                  </div>
-                  <YieldPredictor lat={lat} lon={lon} onSimulationResult={setSimResult} />
-                  <ScenarioExplorer lat={lat} lon={lon} onSimulationResult={setSimResult} />
-                </>
-              }
-            />
+            <Route path="/" element={<Navigate to="/analysis" replace />} />
+            <Route path="/analysis" element={<FarmAnalysis />} />
             <Route
               path="/environment"
               element={
@@ -164,15 +139,7 @@ function App() {
                 </>
               }
             />
-            <Route
-              path="/advisory"
-              element={
-                <>
-                  <SmartAdvisory lat={lat} lon={lon} />
-                  <AdvisoryChat lat={lat} lon={lon} />
-                </>
-              }
-            />
+            <Route path="/chat" element={<AdvisoryChat lat={lat} lon={lon} />} />
           </Routes>
         </main>
       </div>

@@ -435,3 +435,55 @@ export function optimizeSowing(params: {
 }) {
   return postJSON<SowingOptimizerResponse>(`${API_BASE}/simulate/sowing-optimizer`, params);
 }
+
+// --- Farm Analysis (unified) ---
+
+export interface FarmAnalysisRequest {
+  latitude: number;
+  longitude: number;
+  crop: string;
+  field_area_ha?: number;
+  elevation?: number;
+  preferred_sowing?: string;
+  water_budget_mm?: number;
+}
+
+export interface FarmAnalysisResponse {
+  farm: {
+    latitude: number;
+    longitude: number;
+    field_area_ha: number;
+    elevation_range: { min: number; max: number };
+  };
+  environment: {
+    weather_summary: Record<string, unknown>;
+    forecast: Array<Record<string, unknown>>;
+    soil: Record<string, unknown>;
+    groundwater: Record<string, unknown>;
+    ozone: Record<string, unknown>;
+  };
+  sowing: {
+    optimal_period: { start: string; end: string; expected_yield_kg_ha: number; vs_standard_pct: string; risk_level: string };
+    season: string;
+    best_month: string;
+    best_week: string;
+  };
+  models: {
+    wofost: Record<string, unknown> | null;
+    aquacrop: Record<string, unknown> | null;
+    dssat: Record<string, unknown> | null;
+  };
+  unified_score: {
+    overall: number;
+    yield_score: number;
+    water_score: number;
+    nutrient_score: number;
+    risk_score: number;
+  };
+  recommendations: string[];
+  data_sources: Record<string, string>;
+}
+
+export function analyzeFarm(params: FarmAnalysisRequest) {
+  return postJSON<FarmAnalysisResponse>(`${API_BASE}/farm/analyze`, params);
+}
