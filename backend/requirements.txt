@@ -12,3 +12,5 @@ rasterio>=1.3.0
 Pillow>=10.0
 aquacrop>=3.0.0
 DSSATTools>=3.0.0
+cdsapi>=0.7.7
+netCDF4>=1.7.0
