@@ -10,6 +10,7 @@ from app.models.schemas import (
     ScenarioRequest,
     SimulationRequest,
     SmartAdvisoryRequest,
+    SowingOptimizerRequest,
     WaterAdvisoryRequest,
 )
 from app.services.nasa_power import fetch_weather
@@ -440,6 +441,30 @@ def _build_recommendations(
         )
 
     return recs
+
+
+# --- Sowing Period Optimizer ---
+
+@router.post("/sowing-optimizer")
+async def sowing_optimizer(req: SowingOptimizerRequest):
+    """Hierarchical sowing date optimizer.
+
+    Three-level analysis: Season → Month → Week.
+    Integrates WOFOST, AquaCrop, DSSAT, ozone, and groundwater models.
+    """
+    from app.services.sowing_optimizer import optimize_sowing_period
+    try:
+        result = await optimize_sowing_period(
+            lat=req.latitude,
+            lon=req.longitude,
+            crop=req.crop,
+            elevation=req.elevation,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sowing optimizer error: {e}")
 
 
 @router.get("/smart-advisory/models")

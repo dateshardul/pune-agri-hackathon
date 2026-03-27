@@ -102,3 +102,12 @@ class SmartAdvisoryRequest(BaseModel):
     n_kg_ha: float = Field(120.0, description="Nitrogen application (kg/ha)")
     p_kg_ha: float = Field(60.0, description="Phosphorus application (kg/ha)")
     k_kg_ha: float = Field(40.0, description="Potassium application (kg/ha)")
+
+
+# --- Sowing Optimizer ---
+
+class SowingOptimizerRequest(BaseModel):
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+    crop: str = Field("wheat", description="Crop name (wheat, rice, maize, etc.)")
+    elevation: float = Field(500.0, description="Site elevation (m)")
