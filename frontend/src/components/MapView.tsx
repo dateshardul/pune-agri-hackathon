@@ -8,10 +8,21 @@ import type { OverlayConfig } from 'holographic-core';
 import * as THREE from 'three';
 import { getWeather, getSoil, getElevation, type WeatherResponse, type SoilResponse, type SimulationResult, type ElevationData } from '../services/api';
 
+interface CropZoneWithName {
+  type: string;
+  elevation_range: [number, number];
+  area_ha: number;
+  area_fraction: number;
+  color: string;
+  reason: string;
+  crop: string;
+}
+
 interface Props {
   lat: number;
   lon: number;
   simulationResult?: SimulationResult | null;
+  cropZones?: CropZoneWithName[];
 }
 
 // ── Overlay definitions ──────────────────────────────────────────────
@@ -230,7 +241,7 @@ function buildAnnotations(
 
 // ── Component ────────────────────────────────────────────────────────
 
-export default function MapView({ lat, lon, simulationResult }: Props) {
+export default function MapView({ lat, lon, simulationResult, cropZones }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<Engine | null>(null);
   const terrainRef = useRef<TerrainMesh | null>(null);
@@ -349,14 +360,54 @@ export default function MapView({ lat, lon, simulationResult }: Props) {
 
           // ── Crop zone overlay ──
           const cropLayer = eng.layers.add({ name: 'Crop Zones', visible: true, opacity: 0.6 });
-          const zoneGeom = new THREE.CircleGeometry(15, 32);
-          zoneGeom.rotateX(-Math.PI / 2);
-          const zoneMat = new THREE.MeshStandardMaterial({
-            color: 0x22cc44, transparent: true, opacity: 0.3, side: THREE.DoubleSide,
-          });
-          const zone = new THREE.Mesh(zoneGeom, zoneMat);
-          zone.position.set(0, 0.5, 0);
-          cropLayer.group.add(zone);
+          if (cropZones && cropZones.length > 0) {
+            // Multi-crop zone rendering: each zone as a colored band at different elevations
+            const zoneTypes = ['valley', 'slope', 'hilltop'];
+            cropZones.forEach((cz, idx) => {
+              const zoneGeom = new THREE.PlaneGeometry(28, 28 * (cz.area_fraction || 0.3));
+              zoneGeom.rotateX(-Math.PI / 2);
+              const zoneColor = new THREE.Color(cz.color);
+              const zoneMat = new THREE.MeshStandardMaterial({
+                color: zoneColor, transparent: true, opacity: 0.35, side: THREE.DoubleSide,
+              });
+              const zoneMesh = new THREE.Mesh(zoneGeom, zoneMat);
+              // Position zones vertically: valley at bottom, slope in middle, hilltop at top
+              const typeIdx = zoneTypes.indexOf(cz.type);
+              const yOff = typeIdx >= 0 ? typeIdx * 0.4 : idx * 0.4;
+              const zOff = (typeIdx >= 0 ? typeIdx - 1 : idx - 1) * 10;
+              zoneMesh.position.set(0, 0.3 + yOff, zOff);
+              cropLayer.group.add(zoneMesh);
+
+              // Label sprite
+              const canvas = document.createElement('canvas');
+              canvas.width = 256; canvas.height = 64;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.fillStyle = cz.color;
+                ctx.fillRect(0, 0, 256, 64);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 28px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${cz.crop.charAt(0).toUpperCase() + cz.crop.slice(1)} (${cz.type})`, 128, 40);
+                const tex = new THREE.CanvasTexture(canvas);
+                const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.9 });
+                const sprite = new THREE.Sprite(spriteMat);
+                sprite.position.set(0, 2.5 + yOff, zOff);
+                sprite.scale.set(8, 2, 1);
+                cropLayer.group.add(sprite);
+              }
+            });
+          } else {
+            // Default single green circle overlay
+            const zoneGeom = new THREE.CircleGeometry(15, 32);
+            zoneGeom.rotateX(-Math.PI / 2);
+            const zoneMat = new THREE.MeshStandardMaterial({
+              color: 0x22cc44, transparent: true, opacity: 0.3, side: THREE.DoubleSide,
+            });
+            const zoneMesh = new THREE.Mesh(zoneGeom, zoneMat);
+            zoneMesh.position.set(0, 0.5, 0);
+            cropLayer.group.add(zoneMesh);
+          }
 
           // ── Build annotations from fetched data ──
           const annotationDefs = buildAnnotations(weather, soil, lat, lon);

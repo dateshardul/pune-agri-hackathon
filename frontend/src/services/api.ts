@@ -438,10 +438,69 @@ export function optimizeSowing(params: {
 
 // --- Farm Analysis (unified) ---
 
+export interface LandAnalysis {
+  elevation: { min: number; max: number; mean: number; slope_pct: number };
+  hillshade: { sun_exposure_pct: number; shaded_pct: number };
+  landcover: {
+    cropland_pct: number; trees_pct: number; built_pct: number;
+    water_pct: number; bare_pct: number; grass_pct: number;
+    usable_area_ha: number;
+  };
+}
+
+export interface CropZone {
+  type: string;  // "valley" | "slope" | "hilltop"
+  elevation_range: [number, number];
+  area_ha: number;
+  area_fraction: number;
+  color: string;
+  reason: string;
+}
+
+export interface HazardWeek {
+  week: number;
+  risk: 'low' | 'moderate' | 'high';
+  note: string;
+}
+
+export interface CropFeasibility {
+  viable: boolean;
+  severity: 'ok' | 'warning' | 'critical' | 'impossible';
+  reasons: string[];
+  alternatives: Array<{ crop: string; reason: string }>;
+}
+
+export interface CropPlan {
+  crop: string;
+  zone: CropZone;
+  feasibility: CropFeasibility;
+  sowing: {
+    optimal_period: { start: string; end: string; expected_yield_kg_ha: number; vs_standard_pct: string; risk_level: string };
+    season: string;
+    best_month: string;
+  };
+  models: {
+    wofost: Record<string, unknown> | null;
+    aquacrop: Record<string, unknown> | null;
+    dssat: Record<string, unknown> | null;
+  };
+  hazards: {
+    overall_risk: string;
+    weekly_calendar: HazardWeek[];
+    mitigations: string[];
+  };
+}
+
+export interface TimelineEvent {
+  month: string;
+  crops: string[];
+  action: string;
+}
+
 export interface FarmAnalysisRequest {
   latitude: number;
   longitude: number;
-  crop: string;
+  crops: string[];
   field_area_ha?: number;
   elevation?: number;
   preferred_sowing?: string;
@@ -455,6 +514,7 @@ export interface FarmAnalysisResponse {
     field_area_ha: number;
     elevation_range: { min: number; max: number };
   };
+  land_analysis: LandAnalysis;
   environment: {
     weather_summary: Record<string, unknown>;
     forecast: Array<Record<string, unknown>>;
@@ -462,13 +522,16 @@ export interface FarmAnalysisResponse {
     groundwater: Record<string, unknown>;
     ozone: Record<string, unknown>;
   };
-  sowing: {
+  crop_plans: CropPlan[];
+  planting_timeline: TimelineEvent[];
+  // Legacy single-crop fields (used as fallback)
+  sowing?: {
     optimal_period: { start: string; end: string; expected_yield_kg_ha: number; vs_standard_pct: string; risk_level: string };
     season: string;
     best_month: string;
     best_week: string;
   };
-  models: {
+  models?: {
     wofost: Record<string, unknown> | null;
     aquacrop: Record<string, unknown> | null;
     dssat: Record<string, unknown> | null;
@@ -485,5 +548,10 @@ export interface FarmAnalysisResponse {
 }
 
 export function analyzeFarm(params: FarmAnalysisRequest) {
-  return postJSON<FarmAnalysisResponse>(`${API_BASE}/farm/analyze`, params);
+  // Backend may still expect `crop` (string) — send both for compatibility
+  const body: Record<string, unknown> = { ...params };
+  if (params.crops.length === 1) {
+    body.crop = params.crops[0];
+  }
+  return postJSON<FarmAnalysisResponse>(`${API_BASE}/farm/analyze`, body);
 }

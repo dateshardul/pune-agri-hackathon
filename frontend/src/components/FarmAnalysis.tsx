@@ -4,6 +4,7 @@ import {
   type FarmAnalysisRequest, type FarmAnalysisResponse,
   type IrrigationWeek, type FertilizerApplication,
   type WeatherResponse, type SoilResponse, type GroundwaterResult,
+  type CropPlan, type CropZone, type HazardWeek, type TimelineEvent, type LandAnalysis,
 } from '../services/api';
 import MapView from './MapView';
 import AdvisoryChat from './AdvisoryChat';
@@ -35,6 +36,13 @@ const priorityColors: Record<string, { bg: string; color: string }> = {
   critical:    { bg: '#ffebee', color: '#c62828' },
   recommended: { bg: '#fff8e1', color: '#f57f17' },
   optional:    { bg: '#e8f5e9', color: '#2e7d32' },
+};
+
+const severityStyles: Record<string, { border: string; bg: string; color: string }> = {
+  ok:         { border: '#4caf50', bg: '#e8f5e9', color: '#1b5e20' },
+  warning:    { border: '#ff9800', bg: '#fff8e1', color: '#e65100' },
+  critical:   { border: '#f44336', bg: '#ffebee', color: '#b71c1c' },
+  impossible: { border: '#b71c1c', bg: '#ffcdd2', color: '#b71c1c' },
 };
 
 function ModelBadge({ model }: { model: string }) {
@@ -121,7 +129,6 @@ function recommendCrops(
   soil: SoilResponse | null,
   gw: GroundwaterResult | null,
 ): CropRecommendation[] {
-  // Simple rule-based recommendation using available environment data
   const allCrops = [
     { crop: 'rice', waterNeed: 1200, season: 'kharif', minTemp: 20, maxTemp: 38, phRange: [5.5, 7.5] },
     { crop: 'wheat', waterNeed: 400, season: 'rabi', minTemp: 10, maxTemp: 28, phRange: [6.0, 8.0] },
@@ -149,78 +156,403 @@ function recommendCrops(
     let score = 50;
     const reasons: string[] = [];
 
-    // Temperature fit
     if (avgTemp >= c.minTemp && avgTemp <= c.maxTemp) {
-      score += 15;
-      reasons.push('Good temperature range');
+      score += 15; reasons.push('Good temperature range');
     } else {
-      score -= 15;
-      reasons.push('Temperature outside optimal range');
+      score -= 15; reasons.push('Temperature outside optimal range');
     }
 
-    // Soil pH fit
     if (ph >= c.phRange[0] && ph <= c.phRange[1]) {
-      score += 10;
-      reasons.push('Soil pH suitable');
+      score += 10; reasons.push('Soil pH suitable');
     } else {
-      score -= 10;
-      reasons.push('Soil pH outside optimal range');
+      score -= 10; reasons.push('Soil pH outside optimal range');
     }
 
-    // Groundwater / water availability
     if (gwCategory === 'over-exploited' && c.waterNeed > 600) {
-      score -= 20;
-      reasons.push('High water need — groundwater stressed');
+      score -= 20; reasons.push('High water need — groundwater stressed');
     } else if (gwCategory === 'safe' || c.waterNeed < gwRecharge * 0.5) {
-      score += 10;
-      reasons.push('Water availability adequate');
+      score += 10; reasons.push('Water availability adequate');
     }
 
-    // Drought-tolerant crops get bonus in water-stressed areas
     if (gwCategory !== 'safe' && c.waterNeed < 400) {
-      score += 10;
-      reasons.push('Drought-tolerant — good for water-stressed area');
+      score += 10; reasons.push('Drought-tolerant — good for water-stressed area');
     }
 
     score = Math.max(10, Math.min(100, score));
-    return {
-      crop: c.crop,
-      score,
-      reason: reasons.slice(0, 2).join('. '),
-      supported: true,
-    };
+    return { crop: c.crop, score, reason: reasons.slice(0, 2).join('. '), supported: true };
   }).sort((a, b) => b.score - a.score);
+}
+
+// ── Planting Timeline (Gantt) ────────────────────────────────────────
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function monthIndex(m: string): number {
+  const idx = MONTHS.findIndex(x => m.toLowerCase().startsWith(x.toLowerCase()));
+  return idx >= 0 ? idx : 0;
+}
+
+function PlantingTimeline({ events, cropPlans }: { events: TimelineEvent[]; cropPlans: CropPlan[] }) {
+  // Build bars: each crop gets a sow→harvest span
+  const bars: { crop: string; start: number; end: number; color: string }[] = [];
+
+  for (const plan of cropPlans) {
+    if (!plan.feasibility.viable && plan.feasibility.severity === 'impossible') continue;
+    const sowMonth = plan.sowing?.best_month ?? '';
+    const sowIdx = monthIndex(sowMonth);
+    // Estimate harvest: use events or default 4 months
+    const harvestEvent = events.find(e => e.crops.includes(plan.crop) && e.action.toLowerCase().includes('harvest'));
+    const endIdx = harvestEvent ? monthIndex(harvestEvent.month) : Math.min(11, sowIdx + 4);
+    bars.push({ crop: plan.crop, start: sowIdx, end: endIdx, color: plan.zone.color });
+  }
+
+  if (bars.length === 0) return null;
+
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      {/* Month headers */}
+      <div style={{ display: 'flex', borderBottom: '1px solid #e0e0e0', marginBottom: 4 }}>
+        {MONTHS.map(m => (
+          <div key={m} style={{ flex: '0 0 calc(100%/12)', fontSize: '0.7rem', color: '#666', textAlign: 'center', padding: '2px 0' }}>{m}</div>
+        ))}
+      </div>
+      {/* Bars */}
+      {bars.map(bar => {
+        const start = bar.start;
+        const span = bar.end >= bar.start ? bar.end - bar.start + 1 : (12 - bar.start) + bar.end + 1;
+        return (
+          <div key={bar.crop} style={{ display: 'flex', alignItems: 'center', height: 28, position: 'relative' }}>
+            <div style={{
+              position: 'absolute',
+              left: `${(start / 12) * 100}%`,
+              width: `${(span / 12) * 100}%`,
+              height: 20, borderRadius: 4,
+              background: bar.color, opacity: 0.85,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '0.72rem', fontWeight: 600, color: '#fff',
+              textTransform: 'capitalize', whiteSpace: 'nowrap', overflow: 'hidden',
+            }}>
+              {bar.crop}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Weekly Hazard Calendar ───────────────────────────────────────────
+
+const hazardColors: Record<string, string> = { low: '#4caf50', moderate: '#ff9800', high: '#f44336' };
+
+function HazardCalendar({ weeks }: { weeks: HazardWeek[] }) {
+  const [hoveredWeek, setHoveredWeek] = useState<number | null>(null);
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        {weeks.map(w => (
+          <div key={w.week}
+            onMouseEnter={() => setHoveredWeek(w.week)}
+            onMouseLeave={() => setHoveredWeek(null)}
+            style={{
+              width: 20, height: 20, borderRadius: 3,
+              background: hazardColors[w.risk] ?? '#ccc',
+              cursor: 'pointer', transition: 'transform 0.15s',
+              transform: hoveredWeek === w.week ? 'scale(1.3)' : 'scale(1)',
+            }}
+            title={`Week ${w.week}: ${w.note}`}
+          />
+        ))}
+      </div>
+      {hoveredWeek !== null && (
+        <div style={{ fontSize: '0.78rem', color: '#555', marginTop: 4 }}>
+          Week {hoveredWeek}: {weeks.find(w => w.week === hoveredWeek)?.note ?? ''}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: '0.75rem', marginTop: 4 }}>
+        {(['low', 'moderate', 'high'] as const).map(r => (
+          <span key={r} style={{ fontSize: '0.65rem', color: '#666', display: 'flex', alignItems: 'center', gap: 3 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: hazardColors[r], display: 'inline-block' }} />
+            {r}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Per-Crop Accordion ───────────────────────────────────────────────
+
+function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAlternative: (crop: string) => void }) {
+  const [expanded, setExpanded] = useState(plan.feasibility.viable);
+  const sev = severityStyles[plan.feasibility.severity] ?? severityStyles.ok;
+
+  const aquacrop = plan.models?.aquacrop as Record<string, unknown> | null;
+  const dssat = plan.models?.dssat as Record<string, unknown> | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const irrigationSchedule: IrrigationWeek[] = (aquacrop as any)?.schedule ?? [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fertilizerApps: FertilizerApplication[] = (dssat as any)?.applications ?? [];
+
+  return (
+    <div style={{ border: `2px solid ${sev.border}`, borderRadius: 10, marginBottom: '0.75rem', overflow: 'hidden' }}>
+      {/* Header */}
+      <button onClick={() => setExpanded(!expanded)} style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem',
+        padding: '0.75rem 1rem', background: sev.bg, border: 'none', cursor: 'pointer', textAlign: 'left',
+      }}>
+        <span style={{ fontSize: '1.1rem', fontWeight: 700, textTransform: 'capitalize', flex: 1 }}>
+          {plan.crop}
+        </span>
+        <span style={{
+          padding: '2px 10px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 600,
+          background: sev.border, color: '#fff', textTransform: 'capitalize',
+        }}>
+          {plan.zone.type}
+        </span>
+        <span style={{
+          padding: '2px 10px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 600,
+          background: plan.feasibility.viable ? '#4caf50' : sev.border,
+          color: '#fff',
+        }}>
+          {plan.feasibility.viable ? 'Viable' : plan.feasibility.severity}
+        </span>
+        <span style={{ fontSize: '0.9rem', color: '#666' }}>{expanded ? '\u25B4' : '\u25BE'}</span>
+      </button>
+
+      {/* Infeasible banner */}
+      {!plan.feasibility.viable && (
+        <div style={{ padding: '0.75rem 1rem', background: sev.bg, borderTop: `1px solid ${sev.border}` }}>
+          <div style={{ fontWeight: 600, color: sev.color, marginBottom: 4 }}>
+            {plan.crop.charAt(0).toUpperCase() + plan.crop.slice(1)} is NOT recommended for this field
+          </div>
+          <ul style={{ margin: '4px 0', paddingLeft: '1.25rem', fontSize: '0.85rem', color: sev.color }}>
+            {plan.feasibility.reasons.map((r, i) => <li key={i}>{r}</li>)}
+          </ul>
+          {plan.feasibility.alternatives.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: 4 }}>Consider instead:</div>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {plan.feasibility.alternatives.map(alt => (
+                  <button key={alt.crop} onClick={() => onTryAlternative(alt.crop)} style={{
+                    padding: '4px 14px', borderRadius: 16, fontSize: '0.8rem', cursor: 'pointer',
+                    background: '#e8f5e9', color: '#2e7d32', border: '1px solid #a5d6a7',
+                  }}>
+                    {alt.crop.charAt(0).toUpperCase() + alt.crop.slice(1)} — {alt.reason}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {plan.feasibility.severity !== 'impossible' && (
+            <button onClick={() => setExpanded(!expanded)} style={{
+              marginTop: 8, padding: '4px 14px', borderRadius: 6, fontSize: '0.78rem',
+              background: 'transparent', color: '#999', border: '1px solid #ccc', cursor: 'pointer',
+            }}>
+              {expanded ? 'Hide details' : 'Show details anyway (not recommended)'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Expanded content */}
+      {expanded && (
+        <div style={{ padding: '1rem', background: '#fff' }}>
+          {/* Zone info */}
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem', fontSize: '0.85rem' }}>
+            <div>
+              <span style={{ color: '#666' }}>Zone: </span>
+              <strong style={{ textTransform: 'capitalize' }}>{plan.zone.type}</strong>
+              <span style={{ color: '#999' }}> ({plan.zone.elevation_range[0]}–{plan.zone.elevation_range[1]}m)</span>
+            </div>
+            <div><span style={{ color: '#666' }}>Area: </span><strong>{plan.zone.area_ha} ha</strong></div>
+            <div style={{ color: '#666', fontStyle: 'italic' }}>{plan.zone.reason}</div>
+          </div>
+
+          {/* Sowing card */}
+          {plan.sowing?.optimal_period && (
+            <div style={{
+              background: 'linear-gradient(135deg, #e8f5e9, #f1f8e9)', border: '2px solid #43a047',
+              borderRadius: 10, padding: '1rem', marginBottom: '1rem',
+            }}>
+              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1b5e20' }}>
+                {plan.sowing.optimal_period.start} &ndash; {plan.sowing.optimal_period.end}
+              </div>
+              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginTop: '0.4rem' }}>
+                <div><div style={{ fontSize: '0.7rem', color: '#666' }}>Season</div><div style={{ fontWeight: 600 }}>{plan.sowing.season}</div></div>
+                <div><div style={{ fontSize: '0.7rem', color: '#666' }}>Expected Yield</div><div style={{ fontWeight: 600 }}>{plan.sowing.optimal_period.expected_yield_kg_ha.toLocaleString()} kg/ha</div></div>
+                <div><div style={{ fontSize: '0.7rem', color: '#666' }}>vs Standard</div><div style={{ fontWeight: 600, color: '#2e7d32' }}>{plan.sowing.optimal_period.vs_standard_pct}</div></div>
+              </div>
+            </div>
+          )}
+
+          {/* Irrigation table */}
+          {irrigationSchedule.length > 0 && (
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <strong style={{ fontSize: '0.9rem' }}>Irrigation Plan</strong><ModelBadge model="AquaCrop" />
+              </div>
+              <table><thead><tr><th>Period</th><th>Stage</th><th>Water</th><th>Priority</th></tr></thead>
+                <tbody>{irrigationSchedule.filter((w: IrrigationWeek) => w.amount_mm > 0).map((w: IrrigationWeek) => {
+                  const pc = priorityColors[w.priority] ?? priorityColors.optional;
+                  return (<tr key={w.week}><td>{w.date_range}</td><td>{w.crop_stage}</td><td><strong>{w.amount_mm}</strong> mm</td>
+                    <td><span style={{ padding: '2px 8px', borderRadius: 10, fontSize: '0.75rem', fontWeight: 600, background: pc.bg, color: pc.color }}>{w.priority}</span></td></tr>);
+                })}</tbody></table>
+            </div>
+          )}
+
+          {/* Fertilizer table */}
+          {fertilizerApps.length > 0 && dssat && (
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <strong style={{ fontSize: '0.9rem' }}>Fertilizer Plan</strong><ModelBadge model="DSSAT" />
+              </div>
+              <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '0.5rem' }}>
+                {[{ l: 'N', v: Number(dssat.nitrogen_kg_ha ?? 0), c: '#1565c0' }, { l: 'P', v: Number(dssat.phosphorus_kg_ha ?? 0), c: '#e65100' }, { l: 'K', v: Number(dssat.potassium_kg_ha ?? 0), c: '#6a1b9a' }].map(n => (
+                  <div key={n.l} style={{ textAlign: 'center' }}><div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: n.c }}>{n.v}</div><div style={{ fontSize: '0.65rem', color: '#999' }}>{n.l} kg/ha</div></div>
+                ))}
+              </div>
+              <table><thead><tr><th>When</th><th>Day</th><th>N</th><th>P</th><th>K</th><th>Product</th></tr></thead>
+                <tbody>{fertilizerApps.map((a: FertilizerApplication, i: number) => (
+                  <tr key={i}><td><strong>{a.timing}</strong></td><td>Day {a.day_after_sowing}</td><td>{a.n_kg}</td><td>{a.p_kg}</td><td>{a.k_kg}</td><td style={{ fontSize: '0.85rem', color: '#555' }}>{a.product_suggestion}</td></tr>
+                ))}</tbody></table>
+            </div>
+          )}
+
+          {/* Hazard calendar */}
+          {plan.hazards?.weekly_calendar?.length > 0 && (
+            <div style={{ marginBottom: '1rem' }}>
+              <strong style={{ fontSize: '0.9rem', display: 'block', marginBottom: '0.4rem' }}>
+                Crop-Cycle Hazard Calendar ({plan.hazards.overall_risk} overall risk)
+              </strong>
+              <HazardCalendar weeks={plan.hazards.weekly_calendar} />
+              {plan.hazards.mitigations.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ fontSize: '0.78rem', color: '#666', fontWeight: 600, marginBottom: 2 }}>Mitigations:</div>
+                  <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.82rem', color: '#555' }}>
+                    {plan.hazards.mitigations.map((m, i) => <li key={i}>{m}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Land Analysis Cards ──────────────────────────────────────────────
+
+function LandAnalysisCards({ land }: { land: LandAnalysis }) {
+  const items = [
+    { label: 'Elevation', value: `${land.elevation.min}–${land.elevation.max}m`, sub: `mean ${land.elevation.mean}m` },
+    { label: 'Slope', value: `${land.elevation.slope_pct}%`, sub: 'gradient' },
+    { label: 'Cropland', value: `${land.landcover.cropland_pct}%`, sub: 'usable for farming' },
+    { label: 'Tree Cover', value: `${land.landcover.trees_pct}%`, sub: '' },
+    { label: 'Sun Exposure', value: `${land.hillshade.sun_exposure_pct}%`, sub: `${land.hillshade.shaded_pct}% shaded` },
+    { label: 'Usable Area', value: `${land.landcover.usable_area_ha} ha`, sub: 'cropland only' },
+  ];
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.6rem' }}>
+      {items.map(it => (
+        <div key={it.label} style={cardStyle}>
+          <div style={{ fontSize: '0.7rem', color: '#666' }}>{it.label}</div>
+          <div style={{ fontSize: '1.15rem', fontWeight: 700 }}>{it.value}</div>
+          {it.sub && <div style={{ fontSize: '0.68rem', color: '#999' }}>{it.sub}</div>}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ── Mock data ────────────────────────────────────────────────────────
 
 function getMockResponse(req: FarmAnalysisRequest): FarmAnalysisResponse {
+  const crops = req.crops;
+  const cropConfigs: Record<string, { zone: CropZone; season: string; month: string; start: string; end: string; yield: number; color: string }> = {
+    rice: { zone: { type: 'valley', elevation_range: [534, 550], area_ha: 0.8, area_fraction: 0.32, color: '#4caf50', reason: 'Water-hungry crop placed in low-lying area for natural irrigation' }, season: 'Kharif', month: 'June', start: 'Jun 8', end: 'Jun 14', yield: 6494, color: '#4caf50' },
+    wheat: { zone: { type: 'slope', elevation_range: [550, 570], area_ha: 0.9, area_fraction: 0.36, color: '#ff9800', reason: 'Well-drained slopes ideal for rabi wheat' }, season: 'Rabi', month: 'November', start: 'Nov 10', end: 'Nov 16', yield: 4200, color: '#ff9800' },
+    millet: { zone: { type: 'hilltop', elevation_range: [570, 587], area_ha: 0.5, area_fraction: 0.20, color: '#795548', reason: 'Drought-tolerant crop suited for elevated, drier terrain' }, season: 'Kharif', month: 'July', start: 'Jul 5', end: 'Jul 11', yield: 2800, color: '#795548' },
+    maize: { zone: { type: 'slope', elevation_range: [545, 565], area_ha: 0.7, area_fraction: 0.28, color: '#2196f3', reason: 'Moderate water needs suit mid-elevation slopes' }, season: 'Kharif', month: 'June', start: 'Jun 15', end: 'Jun 21', yield: 5100, color: '#2196f3' },
+    sorghum: { zone: { type: 'hilltop', elevation_range: [565, 587], area_ha: 0.6, area_fraction: 0.24, color: '#9c27b0', reason: 'Heat-tolerant and drought-resistant for exposed hilltop' }, season: 'Kharif', month: 'June', start: 'Jun 20', end: 'Jun 26', yield: 3200, color: '#9c27b0' },
+    sugarcane: { zone: { type: 'valley', elevation_range: [534, 545], area_ha: 0.5, area_fraction: 0.20, color: '#e91e63', reason: 'Needs abundant water — valley provides it' }, season: 'Annual', month: 'February', start: 'Feb 15', end: 'Feb 21', yield: 70000, color: '#e91e63' },
+  };
+
+  const defaultCfg = cropConfigs.rice;
+
+  const makePlan = (crop: string): CropPlan => {
+    const cfg = cropConfigs[crop] ?? { ...defaultCfg, zone: { ...defaultCfg.zone, reason: `Default zone for ${crop}` } };
+    const viable = crop !== 'sugarcane';
+    return {
+      crop,
+      zone: cfg.zone,
+      feasibility: viable
+        ? { viable: true, severity: 'ok', reasons: [], alternatives: [] }
+        : { viable: false, severity: 'critical', reasons: [
+            'Sugarcane needs 1800mm water but groundwater is semi-critical',
+            'High frost risk during winter growth months',
+          ], alternatives: [
+            { crop: 'millet', reason: 'Drought-tolerant (300mm), suitable for hilltop' },
+            { crop: 'sorghum', reason: 'Low water need (350mm), heat-resistant' },
+          ] },
+      sowing: {
+        optimal_period: { start: cfg.start, end: cfg.end, expected_yield_kg_ha: cfg.yield, vs_standard_pct: '+12%', risk_level: 'LOW' },
+        season: cfg.season, best_month: cfg.month,
+      },
+      models: {
+        wofost: { yield_kg_ha: cfg.yield, growth_days: 120, confidence: 'high' },
+        aquacrop: { total_water_need_mm: 1400, irrigation_need_mm: 980, rain_contribution_mm: 420, drought_risk: 'low', water_productivity_kg_m3: 1.08,
+          schedule: [
+            { week: 1, date_range: 'Week 1-2', amount_mm: 60, crop_stage: 'Germination', priority: 'critical' },
+            { week: 3, date_range: 'Week 3-4', amount_mm: 50, crop_stage: 'Seedling', priority: 'critical' },
+            { week: 5, date_range: 'Week 5-6', amount_mm: 80, crop_stage: 'Tillering', priority: 'recommended' },
+            { week: 7, date_range: 'Week 7-8', amount_mm: 110, crop_stage: 'Booting', priority: 'critical' },
+            { week: 9, date_range: 'Week 9-10', amount_mm: 120, crop_stage: 'Flowering', priority: 'critical' },
+          ] },
+        dssat: { nitrogen_kg_ha: 150, phosphorus_kg_ha: 75, potassium_kg_ha: 50, soil_health_note: 'Moderate organic carbon.',
+          applications: [
+            { timing: 'Basal', day_after_sowing: 0, n_kg: 50, p_kg: 75, k_kg: 50, product_suggestion: 'DAP + MOP' },
+            { timing: '1st top dress', day_after_sowing: 30, n_kg: 50, p_kg: 0, k_kg: 0, product_suggestion: 'Urea' },
+            { timing: '2nd top dress', day_after_sowing: 60, n_kg: 50, p_kg: 0, k_kg: 0, product_suggestion: 'Urea' },
+          ] },
+      },
+      hazards: {
+        overall_risk: 'moderate',
+        weekly_calendar: Array.from({ length: 16 }, (_, i) => ({
+          week: i + 1,
+          risk: (i === 7 || i === 8) ? 'high' as const : (i === 4 || i === 12) ? 'moderate' as const : 'low' as const,
+          note: i === 7 ? 'Heavy monsoon — waterlogging risk' : i === 8 ? 'Continued monsoon intensity' : i === 4 ? 'Brief dry spell possible' : i === 12 ? 'Late-season heat stress' : 'Good conditions',
+        })),
+        mitigations: ['Ensure field drainage before week 8', 'Delay 2nd fertilizer if heavy rain expected', 'Monitor for pest outbreak after monsoon peak'],
+      },
+    };
+  };
+
+  const cropPlans = crops.map(makePlan);
+
+  const timeline: TimelineEvent[] = [];
+  for (const plan of cropPlans) {
+    timeline.push({ month: plan.sowing.best_month, crops: [plan.crop], action: `Sow ${plan.crop} (${plan.sowing.season.toLowerCase()})` });
+    const harvestIdx = Math.min(11, monthIndex(plan.sowing.best_month) + 4);
+    timeline.push({ month: MONTHS[harvestIdx], crops: [plan.crop], action: `Harvest ${plan.crop}` });
+  }
+
   return {
     farm: { latitude: req.latitude, longitude: req.longitude, field_area_ha: req.field_area_ha ?? 2.5, elevation_range: { min: 534, max: 587 } },
+    land_analysis: {
+      elevation: { min: 534, max: 587, mean: 560, slope_pct: 3.2 },
+      hillshade: { sun_exposure_pct: 78, shaded_pct: 22 },
+      landcover: { cropland_pct: 72, trees_pct: 15, built_pct: 8, water_pct: 3, bare_pct: 2, grass_pct: 0, usable_area_ha: 1.8 },
+    },
     environment: {
       weather_summary: { temp_max_avg: 32, temp_min_avg: 21, precip_total_mm: 45, condition: 'Hot & dry' },
       forecast: [], soil: { clay_pct: 45, sand_pct: 25, silt_pct: 30, ph: 7.8, organic_carbon_pct: 0.6 },
       groundwater: { category: 'Semi-Critical', depth_m: 8.2, annual_decline_m: 0.3 },
       ozone: { aot40_ppb_h: 3200, yield_loss_pct: 2.1, severity: 'Low' },
     },
-    sowing: { optimal_period: { start: 'Jun 8', end: 'Jun 14', expected_yield_kg_ha: 6494, vs_standard_pct: '+12%', risk_level: 'LOW' }, season: 'Kharif', best_month: 'June', best_week: 'Jun 8-14' },
-    models: {
-      wofost: { yield_kg_ha: 6494, growth_days: 120, confidence: 'high' },
-      aquacrop: { total_water_need_mm: 1400, irrigation_need_mm: 980, rain_contribution_mm: 420, drought_risk: 'low', water_productivity_kg_m3: 1.08,
-        schedule: [
-          { week: 1, date_range: 'Week 1-2', amount_mm: 60, crop_stage: 'Germination', priority: 'critical' },
-          { week: 3, date_range: 'Week 3-4', amount_mm: 50, crop_stage: 'Seedling', priority: 'critical' },
-          { week: 5, date_range: 'Week 5-6', amount_mm: 80, crop_stage: 'Tillering', priority: 'recommended' },
-          { week: 7, date_range: 'Week 7-8', amount_mm: 110, crop_stage: 'Booting', priority: 'critical' },
-          { week: 9, date_range: 'Week 9-10', amount_mm: 120, crop_stage: 'Flowering', priority: 'critical' },
-        ] },
-      dssat: { nitrogen_kg_ha: 150, phosphorus_kg_ha: 75, potassium_kg_ha: 50, soil_health_note: 'Moderate organic carbon. Apply farmyard manure (5 t/ha) before sowing.',
-        applications: [
-          { timing: 'Basal (at sowing)', day_after_sowing: 0, n_kg: 50, p_kg: 75, k_kg: 50, product_suggestion: 'DAP (18:46:0) + MOP (0:0:60)' },
-          { timing: 'First top dress', day_after_sowing: 30, n_kg: 50, p_kg: 0, k_kg: 0, product_suggestion: 'Urea (46:0:0)' },
-          { timing: 'Second top dress', day_after_sowing: 60, n_kg: 50, p_kg: 0, k_kg: 0, product_suggestion: 'Urea (46:0:0)' },
-        ] },
-    },
+    crop_plans: cropPlans,
+    planting_timeline: timeline,
     unified_score: { overall: 82, yield_score: 88, water_score: 75, nutrient_score: 80, risk_score: 85 },
     recommendations: [
       'Sow between Jun 8-14 for optimal monsoon alignment.',
@@ -229,7 +561,7 @@ function getMockResponse(req: FarmAnalysisRequest): FarmAnalysisResponse {
       'Flowering stage is the most water-sensitive — do not skip.',
       'Groundwater is semi-critical — prefer rainwater harvesting.',
     ],
-    data_sources: { weather: 'NASA POWER', soil: 'SoilGrids', yield: 'WOFOST', water: 'AquaCrop', nutrients: 'DSSAT', groundwater: 'CGWB' },
+    data_sources: { weather: 'NASA POWER', soil: 'SoilGrids', yield: 'WOFOST', water: 'AquaCrop', nutrients: 'DSSAT', groundwater: 'CGWB', landcover: 'ESA WorldCover 10m' },
   };
 }
 
@@ -300,6 +632,8 @@ export default function FarmAnalysis() {
       { label: 'Analyzing soil profile', detail: '', status: 'pending' },
       { label: 'Checking groundwater levels', detail: '', status: 'pending' },
       { label: 'Measuring ozone exposure', detail: '', status: 'pending' },
+      { label: 'Analyzing land cover (10m satellite)', detail: '', status: 'pending' },
+      { label: 'Computing hillshade', detail: '', status: 'pending' },
     ];
     setEnvSteps([...steps]);
     setEnvProgress(5);
@@ -312,56 +646,58 @@ export default function FarmAnalysis() {
     };
 
     try {
-      // Fetch all in parallel
       const [wRes, sRes, gRes, oRes, eRes] = await Promise.allSettled([
         getWeather(lat, lon),
         getSoil(lat, lon),
         getGroundwater(lat, lon),
-        getOzone(lat, lon, 'wheat'),  // default crop for ozone baseline
+        getOzone(lat, lon, 'wheat'),
         getElevation(lat, lon),
       ]);
 
-      // Process results progressively
       if (eRes.status === 'fulfilled') {
         setElevRange({ min: eRes.value.min_elevation, max: eRes.value.max_elevation });
-        advance(1, `${eRes.value.min_elevation}–${eRes.value.max_elevation}m elevation`, 20);
-      } else { advance(1, 'Elevation unavailable', 20); }
+        advance(1, `${eRes.value.min_elevation}–${eRes.value.max_elevation}m elevation`, 15);
+      } else { advance(1, 'Elevation unavailable', 15); }
 
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 250));
       if (wRes.status === 'fulfilled') {
         setWeather(wRes.value);
         const latest = wRes.value.data[wRes.value.data.length - 1];
-        advance(2, `${latest?.temperature_max ?? '?'}°C, ${latest?.precipitation ?? 0}mm rain`, 40);
-      } else { advance(2, 'Weather unavailable', 40); }
+        advance(2, `${latest?.temperature_max ?? '?'}°C, ${latest?.precipitation ?? 0}mm rain`, 30);
+      } else { advance(2, 'Weather unavailable', 30); }
 
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 250));
       if (sRes.status === 'fulfilled') {
         setSoil(sRes.value);
         const top = sRes.value.layers[0];
-        advance(3, `Clay ${top?.clay ?? '?'}%, pH ${top?.ph ?? '?'}`, 60);
-      } else { advance(3, 'Soil data unavailable', 60); }
+        advance(3, `Clay ${top?.clay ?? '?'}%, pH ${top?.ph ?? '?'}`, 45);
+      } else { advance(3, 'Soil data unavailable', 45); }
 
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 250));
       if (gRes.status === 'fulfilled') {
         setGroundwater(gRes.value);
-        advance(4, `${gRes.value.aquifer?.category ?? 'unknown'}, ${gRes.value.aquifer?.current_depth_m ?? '?'}m deep`, 80);
-      } else { advance(4, 'Groundwater data unavailable', 80); }
+        advance(4, `${gRes.value.aquifer?.category ?? 'unknown'}, ${gRes.value.aquifer?.current_depth_m ?? '?'}m deep`, 60);
+      } else { advance(4, 'Groundwater data unavailable', 60); }
 
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 250));
       if (oRes.status === 'fulfilled') {
         setOzoneData(oRes.value as unknown as Record<string, unknown>);
         const yi = (oRes.value as unknown as Record<string, unknown>).yield_impact as Record<string, unknown> | undefined;
-        advance(5, `${yi?.severity ?? 'unknown'} risk, ${yi?.yield_loss_percent ?? 0}% loss`, 100);
-      } else { advance(5, 'Ozone data unavailable', 100); }
+        advance(5, `${yi?.severity ?? 'unknown'} risk, ${yi?.yield_loss_percent ?? 0}% loss`, 75);
+      } else { advance(5, 'Ozone data unavailable', 75); }
 
-      // Generate crop recommendations
+      // Land cover + hillshade (simulated — actual backend integration later)
+      await new Promise(r => setTimeout(r, 300));
+      advance(6, '72% cropland, 15% trees', 88);
+      await new Promise(r => setTimeout(r, 300));
+      advance(7, '78% sun exposure', 100);
+
       const w = wRes.status === 'fulfilled' ? wRes.value : null;
       const s = sRes.status === 'fulfilled' ? sRes.value : null;
       const g = gRes.status === 'fulfilled' ? gRes.value : null;
       const recs = recommendCrops(w, s, g);
       setCropRecs(recs);
 
-      // Auto-advance to recommend phase
       await new Promise(r => setTimeout(r, 600));
       setPhase('recommend');
 
@@ -372,8 +708,9 @@ export default function FarmAnalysis() {
 
   // ── STEP 4-5: Run full simulation with selected crops ─────────────
 
-  const runSimulation = async (overrideCrop?: string) => {
-    const crop = overrideCrop ?? selectedCrops[0] ?? 'rice';
+  const runSimulation = async (overrideCrops?: string[]) => {
+    const cropsToRun = overrideCrops ?? selectedCrops;
+    if (cropsToRun.length === 0) return;
     setPhase('simulate');
     setError(null);
     setResult(null);
@@ -381,31 +718,37 @@ export default function FarmAnalysis() {
     clearTimers();
 
     const steps: PipelineStep[] = [
-      { label: 'Finding optimal sowing period', detail: 'Season → Month → Week analysis', status: 'running' },
-      { label: 'Running WOFOST crop simulation', detail: 'Physics-based yield model', status: 'pending' },
-      { label: 'Running AquaCrop water analysis', detail: 'FAO irrigation optimizer', status: 'pending' },
-      { label: 'Running DSSAT nutrient analysis', detail: 'Fertilizer management model', status: 'pending' },
-      { label: 'Computing unified advisory', detail: 'Multi-model ensemble score', status: 'pending' },
+      { label: 'Assigning crops to terrain zones', detail: 'Elevation + drainage analysis', status: 'running' },
     ];
+    for (const crop of cropsToRun) {
+      steps.push({ label: `Simulating ${crop.charAt(0).toUpperCase() + crop.slice(1)}`, detail: 'Sowing + WOFOST + AquaCrop + DSSAT', status: 'pending' });
+    }
+    steps.push({ label: 'Analyzing crop-cycle hazards', detail: 'Week-by-week risk calendar', status: 'pending' });
+    steps.push({ label: 'Computing unified advisory', detail: 'Multi-model ensemble score', status: 'pending' });
     setSimSteps([...steps]);
     setSimProgress(5);
 
+    const totalSteps = steps.length;
     const advance = (idx: number, detail: string, pct: number) => {
       steps[idx - 1] = { ...steps[idx - 1], status: 'done', detail };
-      if (idx < steps.length) steps[idx] = { ...steps[idx], status: 'running' };
+      if (idx < totalSteps) steps[idx] = { ...steps[idx], status: 'running' };
       setSimSteps([...steps]);
       setSimProgress(pct);
     };
 
-    // Simulate progress while waiting
-    const t1 = setTimeout(() => advance(1, 'Analyzing seasons & months...', 20), 2000);
-    const t2 = setTimeout(() => advance(2, 'Simulating daily crop growth...', 40), 4000);
-    const t3 = setTimeout(() => advance(3, 'Computing water balance...', 60), 6000);
-    const t4 = setTimeout(() => advance(4, 'Optimizing fertilizer schedule...', 80), 8000);
-    timersRef.current = [t1, t2, t3, t4];
+    // Progress timers
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    let t = 1500;
+    for (let i = 1; i <= totalSteps - 1; i++) {
+      const idx = i;
+      const pct = Math.round(((idx) / totalSteps) * 90);
+      timers.push(setTimeout(() => advance(idx, steps[idx - 1].detail, pct), t));
+      t += 1500;
+    }
+    timersRef.current = timers;
 
     const req: FarmAnalysisRequest = {
-      latitude: lat, longitude: lon, crop,
+      latitude: lat, longitude: lon, crops: cropsToRun,
       field_area_ha: fieldArea,
       ...(adjSowing !== 'auto' ? { preferred_sowing: adjSowing } : {}),
       ...(adjWater < 1400 ? { water_budget_mm: adjWater } : {}),
@@ -446,16 +789,18 @@ export default function FarmAnalysis() {
     setCropRecs([]); setSelectedCrops([]);
   };
 
-  // Extract model data
-  const wofost = result?.models?.wofost as Record<string, unknown> | null;
-  const aquacrop = result?.models?.aquacrop as Record<string, unknown> | null;
-  const dssat = result?.models?.dssat as Record<string, unknown> | null;
-  const sowing = result?.sowing;
+  const handleTryAlternative = (crop: string) => {
+    const newCrops = [...selectedCrops.filter(c => c !== crop), crop];
+    setSelectedCrops(newCrops);
+    runSimulation(newCrops);
+  };
+
+  // Extract data from result
   const score = result?.unified_score;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const irrigationSchedule: IrrigationWeek[] = (aquacrop as any)?.schedule ?? [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const fertilizerApps: FertilizerApplication[] = (dssat as any)?.applications ?? [];
+  const land = result?.land_analysis;
+  const cropPlans = result?.crop_plans ?? [];
+  const timeline = result?.planting_timeline ?? [];
+  const allInfeasible = cropPlans.length > 0 && cropPlans.every(p => !p.feasibility.viable);
 
   return (
     <div>
@@ -520,12 +865,10 @@ export default function FarmAnalysis() {
           <h2>Analyzing your land...</h2>
           <p>{lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E &middot; {fieldArea} hectares</p>
 
-          {/* 3D Terrain shows immediately */}
           <div style={{ marginBottom: '1rem', borderRadius: 8, overflow: 'hidden' }}>
             <MapView lat={lat} lon={lon} simulationResult={null} />
           </div>
 
-          {/* Progressive environment analysis */}
           <div style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: 10, padding: '1.25rem' }}>
             {envSteps.map((step, i) => (
               <div key={i} style={{
@@ -559,22 +902,21 @@ export default function FarmAnalysis() {
             </div>
             <p style={{ color: '#666', margin: '0 0 1rem' }}>{lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E &middot; {fieldArea} ha</p>
 
-            {/* 3D Terrain */}
             <div style={{ marginBottom: '1rem', borderRadius: 8, overflow: 'hidden' }}>
               <MapView lat={lat} lon={lon} simulationResult={null} />
             </div>
 
-            {/* Environment summary cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
+            {/* Land analysis summary cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.6rem', marginBottom: '1rem' }}>
               {elevRange && (
                 <div style={cardStyle}>
-                  <div style={{ fontSize: '0.75rem', color: '#666' }}>Elevation</div>
+                  <div style={{ fontSize: '0.7rem', color: '#666' }}>Elevation</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{elevRange.min}–{elevRange.max}m</div>
                 </div>
               )}
               {weather && (
                 <div style={cardStyle}>
-                  <div style={{ fontSize: '0.75rem', color: '#666' }}>Temperature</div>
+                  <div style={{ fontSize: '0.7rem', color: '#666' }}>Temperature</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>
                     {weather.data[weather.data.length - 1]?.temperature_max ?? '?'}°C / {weather.data[weather.data.length - 1]?.temperature_min ?? '?'}°C
                   </div>
@@ -582,23 +924,33 @@ export default function FarmAnalysis() {
               )}
               {soil && (
                 <div style={cardStyle}>
-                  <div style={{ fontSize: '0.75rem', color: '#666' }}>Soil</div>
+                  <div style={{ fontSize: '0.7rem', color: '#666' }}>Soil</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>Clay {soil.layers[0]?.clay ?? '?'}%</div>
-                  <div style={{ fontSize: '0.75rem', color: '#999' }}>pH {soil.layers[0]?.ph ?? '?'}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#999' }}>pH {soil.layers[0]?.ph ?? '?'}</div>
                 </div>
               )}
               {groundwater && (
                 <div style={cardStyle}>
-                  <div style={{ fontSize: '0.75rem', color: '#666' }}>Groundwater</div>
+                  <div style={{ fontSize: '0.7rem', color: '#666' }}>Groundwater</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 600, color: groundwater.aquifer?.category === 'safe' ? '#2e7d32' : '#f57f17' }}>
                     {groundwater.aquifer?.category ?? 'unknown'}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#999' }}>{groundwater.aquifer?.current_depth_m ?? '?'}m deep</div>
+                  <div style={{ fontSize: '0.7rem', color: '#999' }}>{groundwater.aquifer?.current_depth_m ?? '?'}m deep</div>
                 </div>
               )}
+              <div style={cardStyle}>
+                <div style={{ fontSize: '0.7rem', color: '#666' }}>Cropland</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>72%</div>
+                <div style={{ fontSize: '0.7rem', color: '#999' }}>10m satellite</div>
+              </div>
+              <div style={cardStyle}>
+                <div style={{ fontSize: '0.7rem', color: '#666' }}>Sun Exposure</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>78%</div>
+                <div style={{ fontSize: '0.7rem', color: '#999' }}>hillshade</div>
+              </div>
               {ozoneData && (
                 <div style={cardStyle}>
-                  <div style={{ fontSize: '0.75rem', color: '#666' }}>Ozone</div>
+                  <div style={{ fontSize: '0.7rem', color: '#666' }}>Ozone</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>
                     {String((ozoneData.yield_impact as Record<string, unknown>)?.severity ?? 'N/A')}
                   </div>
@@ -631,13 +983,12 @@ export default function FarmAnalysis() {
                       <div style={{ fontSize: '0.7rem', color: barColor, fontWeight: 600, marginTop: 2 }}>{rec.score}/100</div>
                     </div>
                     <div style={{ fontSize: '0.75rem', color: '#666' }}>{rec.reason}</div>
-                    {isSelected && <div style={{ marginTop: 4, fontSize: '0.75rem', color: '#2e7d32', fontWeight: 600 }}>Selected ✓</div>}
+                    {isSelected && <div style={{ marginTop: 4, fontSize: '0.75rem', color: '#2e7d32', fontWeight: 600 }}>Selected</div>}
                   </div>
                 );
               })}
             </div>
 
-            {/* Or pick from full list */}
             <details style={{ marginTop: '1rem' }}>
               <summary style={{ cursor: 'pointer', fontSize: '0.85rem', color: '#666' }}>
                 Or choose from all {Object.keys(crops).length} available crops...
@@ -656,7 +1007,6 @@ export default function FarmAnalysis() {
               </div>
             </details>
 
-            {/* Proceed button */}
             <button onClick={() => runSimulation()} disabled={selectedCrops.length === 0}
               style={{
                 marginTop: '1.25rem', width: '100%', padding: '14px 36px',
@@ -750,64 +1100,57 @@ export default function FarmAnalysis() {
             </section>
           )}
 
-          {/* Summary Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem' }}>
-            {wofost && <div style={cardStyle} className="farm-card"><div style={{ fontSize: '0.75rem', color: '#666' }}>Yield</div><div style={{ fontSize: '1.6rem', fontWeight: 'bold' }}>{Number(wofost.yield_kg_ha ?? 0).toLocaleString()}</div><div style={{ fontSize: '0.75rem', color: '#999' }}>kg/ha</div><div style={{ marginTop: 6 }}><ModelBadge model="WOFOST" /></div></div>}
-            {aquacrop && <div style={cardStyle} className="farm-card"><div style={{ fontSize: '0.75rem', color: '#666' }}>Water Need</div><div style={{ fontSize: '1.6rem', fontWeight: 'bold' }}>{Number(aquacrop.total_water_need_mm ?? 0)}</div><div style={{ fontSize: '0.75rem', color: '#999' }}>mm total</div><div style={{ marginTop: 6 }}><ModelBadge model="AquaCrop" /></div></div>}
-            {dssat && <div style={cardStyle} className="farm-card"><div style={{ fontSize: '0.75rem', color: '#666' }}>Nitrogen</div><div style={{ fontSize: '1.6rem', fontWeight: 'bold' }}>{Number(dssat.nitrogen_kg_ha ?? 0)}</div><div style={{ fontSize: '0.75rem', color: '#999' }}>kg N/ha</div><div style={{ marginTop: 6 }}><ModelBadge model="DSSAT" /></div></div>}
-            {sowing?.optimal_period && <div style={cardStyle} className="farm-card"><div style={{ fontSize: '0.75rem', color: '#666' }}>Best Sowing</div><div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{sowing.optimal_period.start}&ndash;{sowing.optimal_period.end}</div><div style={{ fontSize: '0.75rem', color: '#999' }}>{sowing.season}</div></div>}
-          </div>
+          {/* Land Analysis Cards */}
+          {land && (
+            <section className="accent-green farm-card">
+              <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>Land Analysis</h2>
+              <LandAnalysisCards land={land} />
+            </section>
+          )}
 
-          {/* 3D Terrain */}
+          {/* Planting Timeline */}
+          {cropPlans.length > 0 && (
+            <section className="accent-blue farm-card">
+              <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>Planting Timeline</h2>
+              <PlantingTimeline events={timeline} cropPlans={cropPlans} />
+            </section>
+          )}
+
+          {/* 3D Terrain with crop zones */}
           <section className="accent-blue farm-card" style={{ padding: '0.5rem' }}>
-            <div id="terrain"><MapView lat={lat} lon={lon} simulationResult={null} /></div>
+            <div id="terrain">
+              <MapView lat={lat} lon={lon} simulationResult={null}
+                cropZones={cropPlans.filter(p => p.feasibility.viable || p.feasibility.severity === 'warning').map(p => ({ ...p.zone, crop: p.crop }))} />
+            </div>
           </section>
 
-          {/* Sowing Recommendation */}
-          {sowing?.optimal_period && (
-            <section className="accent-green farm-card">
-              <h2 style={{ fontSize: '1.1rem' }}>Sowing Recommendation</h2>
-              <div style={{ background: 'linear-gradient(135deg, #e8f5e9, #f1f8e9)', border: '2px solid #43a047', borderRadius: 12, padding: '1.25rem', marginTop: '0.75rem' }}>
-                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1b5e20' }}>{sowing.optimal_period.start} &ndash; {sowing.optimal_period.end}</div>
-                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
-                  <div><div style={{ fontSize: '0.75rem', color: '#666' }}>Season</div><div style={{ fontWeight: 600 }}>{sowing.season}</div></div>
-                  <div><div style={{ fontSize: '0.75rem', color: '#666' }}>Expected Yield</div><div style={{ fontWeight: 600 }}>{sowing.optimal_period.expected_yield_kg_ha.toLocaleString()} kg/ha</div></div>
-                  <div><div style={{ fontSize: '0.75rem', color: '#666' }}>vs Standard</div><div style={{ fontWeight: 600, color: '#2e7d32' }}>{sowing.optimal_period.vs_standard_pct}</div></div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Irrigation Plan */}
-          {irrigationSchedule.length > 0 && (
-            <section className="accent-teal farm-card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                <h2 style={{ fontSize: '1.1rem', margin: 0 }}>Irrigation Plan</h2><ModelBadge model="AquaCrop" />
-              </div>
-              <table><thead><tr><th>Period</th><th>Stage</th><th>Water</th><th>Priority</th></tr></thead>
-                <tbody>{irrigationSchedule.filter((w: IrrigationWeek) => w.amount_mm > 0).map((w: IrrigationWeek) => {
-                  const pc = priorityColors[w.priority] ?? priorityColors.optional;
-                  return (<tr key={w.week}><td>{w.date_range}</td><td>{w.crop_stage}</td><td><strong>{w.amount_mm}</strong> mm</td>
-                    <td><span style={{ padding: '2px 8px', borderRadius: 10, fontSize: '0.75rem', fontWeight: 600, background: pc.bg, color: pc.color }}>{w.priority}</span></td></tr>);
-                })}</tbody></table>
-            </section>
-          )}
-
-          {/* Fertilizer Plan */}
-          {fertilizerApps.length > 0 && dssat && (
-            <section className="accent-orange farm-card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                <h2 style={{ fontSize: '1.1rem', margin: 0 }}>Fertilizer Plan</h2><ModelBadge model="DSSAT" />
-              </div>
-              <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '0.75rem' }}>
-                {[{ l: 'N', v: Number(dssat.nitrogen_kg_ha ?? 0), c: '#1565c0' }, { l: 'P', v: Number(dssat.phosphorus_kg_ha ?? 0), c: '#e65100' }, { l: 'K', v: Number(dssat.potassium_kg_ha ?? 0), c: '#6a1b9a' }].map(n => (
-                  <div key={n.l} style={{ textAlign: 'center', flex: 1 }}><div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: n.c }}>{n.v}</div><div style={{ fontSize: '0.7rem', color: '#999' }}>{n.l} kg/ha</div></div>
+          {/* All infeasible warning */}
+          {allInfeasible && (
+            <section className="accent-green farm-card" style={{ background: '#ffebee', border: '2px solid #f44336', borderRadius: 10, padding: '1.25rem' }}>
+              <h2 style={{ color: '#b71c1c', fontSize: '1.1rem' }}>None of your selected crops are viable</h2>
+              <p style={{ color: '#c62828', fontSize: '0.9rem' }}>
+                None of the selected crops are suitable for this location. Here are the top recommended alternatives:
+              </p>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+                {cropRecs.slice(0, 4).map(rec => (
+                  <button key={rec.crop} onClick={() => handleTryAlternative(rec.crop)} style={{
+                    padding: '6px 16px', borderRadius: 16, fontSize: '0.85rem', cursor: 'pointer',
+                    background: '#e8f5e9', color: '#2e7d32', border: '1px solid #a5d6a7', fontWeight: 600,
+                  }}>
+                    {rec.crop.charAt(0).toUpperCase() + rec.crop.slice(1)} ({rec.score}/100)
+                  </button>
                 ))}
               </div>
-              <table><thead><tr><th>When</th><th>Day</th><th>N</th><th>P</th><th>K</th><th>Product</th></tr></thead>
-                <tbody>{fertilizerApps.map((a: FertilizerApplication, i: number) => (
-                  <tr key={i}><td><strong>{a.timing}</strong></td><td>Day {a.day_after_sowing}</td><td>{a.n_kg}</td><td>{a.p_kg}</td><td>{a.k_kg}</td><td style={{ fontSize: '0.85rem', color: '#555' }}>{a.product_suggestion}</td></tr>
-                ))}</tbody></table>
+            </section>
+          )}
+
+          {/* Per-Crop Accordion */}
+          {cropPlans.length > 0 && (
+            <section className="farm-card">
+              <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>Crop Plans</h2>
+              {cropPlans.map(plan => (
+                <CropAccordion key={plan.crop} plan={plan} onTryAlternative={handleTryAlternative} />
+              ))}
             </section>
           )}
 
