@@ -796,11 +796,13 @@ export default function FarmAnalysis() {
   };
 
   // Extract data from result
-  const score = result?.unified_score;
   const land = result?.land_analysis;
   const cropPlans = result?.crop_plans ?? [];
   const timeline = result?.planting_timeline ?? [];
-  const allInfeasible = cropPlans.length > 0 && cropPlans.every(p => !p.feasibility.viable);
+  // unified_score may be at top level (mock) or inside first crop_plan (backend)
+  const score = (result as Record<string, unknown>)?.unified_score as Record<string, number> | undefined
+    ?? cropPlans[0]?.unified_score as Record<string, number> | undefined;
+  const allInfeasible = cropPlans.length > 0 && cropPlans.every(p => p.feasibility && !p.feasibility.viable);
 
   return (
     <div>
@@ -918,7 +920,7 @@ export default function FarmAnalysis() {
                 <div style={cardStyle}>
                   <div style={{ fontSize: '0.7rem', color: '#666' }}>Temperature</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>
-                    {weather.data[weather.data.length - 1]?.temperature_max ?? '?'}°C / {weather.data[weather.data.length - 1]?.temperature_min ?? '?'}°C
+                    {(() => { const d = weather.data.slice().reverse().find(x => x.temperature_max != null); return d ? `${d.temperature_max}°C / ${d.temperature_min}°C` : 'Loading...'; })()}
                   </div>
                 </div>
               )}
