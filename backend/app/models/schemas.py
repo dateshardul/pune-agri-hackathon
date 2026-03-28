@@ -118,7 +118,7 @@ class SowingOptimizerRequest(BaseModel):
 class FarmAnalysisRequest(BaseModel):
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
-    crop: str = Field("wheat", description="Crop name (wheat, rice, maize, etc.)")
+    crops: list[str] = Field(["rice"], description="List of crops to analyze")
     field_area_ha: float = Field(1.0, gt=0, description="Field area in hectares")
     elevation: float = Field(500.0, description="Site elevation (m)")
     preferred_sowing: str | None = Field(None, description="User override sowing date (YYYY-MM-DD)")

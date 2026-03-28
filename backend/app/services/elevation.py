@@ -140,6 +140,36 @@ def _synthetic_heightmap(lat: float, lon: float, size_px: int) -> dict:
     }
 
 
+def compute_hillshade(
+    elevation_data: list[float],
+    width: int,
+    height: int,
+    cell_size: float = 30.0,
+    azimuth: float = 315.0,
+    altitude: float = 45.0,
+) -> dict:
+    """Compute hillshade from elevation array using numpy gradient.
+
+    Returns sun exposure percentage and hillshade grid for crop zone planning.
+    """
+    arr = np.array(elevation_data).reshape(height, width)
+    dy, dx = np.gradient(arr, cell_size)
+    slope = np.arctan(np.sqrt(dx**2 + dy**2))
+    aspect = np.arctan2(-dx, dy)
+    az_rad = np.radians(azimuth)
+    alt_rad = np.radians(altitude)
+    shade = (
+        np.sin(alt_rad) * np.cos(slope)
+        + np.cos(alt_rad) * np.sin(slope) * np.cos(az_rad - aspect)
+    )
+    sun_pct = float(np.mean(shade > 0.5) * 100)
+    return {
+        "sun_exposure_pct": round(sun_pct, 1),
+        "shaded_pct": round(100 - sun_pct, 1),
+        "hillshade_grid": shade.flatten().tolist(),
+    }
+
+
 async def fetch_elevation_grid(lat: float, lon: float, size_px: int = 128) -> dict:
     """Fetch elevation grid trying Copernicus, then AWS Terrain, then synthetic."""
     # Strategy 1: Copernicus GLO-30

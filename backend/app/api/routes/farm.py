@@ -10,13 +10,13 @@ router = APIRouter()
 
 @router.post("/analyze")
 async def analyze_farm_endpoint(req: FarmAnalysisRequest):
-    """Run complete farm analysis: weather, soil, sowing optimization,
-    WOFOST + AquaCrop + DSSAT simulations, ML prediction, and advisory.
+    """Run complete multi-crop farm analysis: land cover, terrain zones,
+    sowing optimization, crop-cycle hazards, and model simulations.
     """
     result = await analyze_farm(
         lat=req.latitude,
         lon=req.longitude,
-        crop=req.crop,
+        crops=req.crops,
         field_area_ha=req.field_area_ha,
         elevation=req.elevation,
         preferred_sowing=req.preferred_sowing,
