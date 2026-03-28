@@ -336,7 +336,7 @@ export default function MapView({ lat, lon, simulationResult, cropZones }: Props
               heightData: rawHeight,
               width: elevResult.width,
               height: elevResult.height,
-              heightScale: elevRange > 0 ? 12 / elevRange : 1,
+              heightScale: elevRange > 0 ? 6 / elevRange : 1,
             });
             elevMin = elevResult.min_elevation;
             elevMax = elevResult.max_elevation;
@@ -345,7 +345,7 @@ export default function MapView({ lat, lon, simulationResult, cropZones }: Props
             const seed = lat * 100 + lon;
             const heightData = generateSeededHeightmap(256, 256, seed);
             terrain = new TerrainMesh({
-              heightData, width: 256, height: 256, heightScale: 0.5,
+              heightData, width: 256, height: 256, heightScale: 0.2,
             });
           }
           terrainRef.current = terrain;
