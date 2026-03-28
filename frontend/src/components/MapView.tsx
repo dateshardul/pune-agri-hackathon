@@ -419,6 +419,8 @@ export default function MapView({ lat, lon, simulationResult, cropZones }: Props
           // Create a separate layer for the colored sphere markers
           const markerLayer = eng.layers.add({ name: 'Marker Spheres', visible: true });
 
+          // Use sprites for constant screen-size markers (don't scale with zoom)
+          const markerMeshes: THREE.Mesh[] = [];
           for (const a of annotationDefs) {
             eng.annotations.addAnnotation(a.pos, a.title, a.desc, a.data);
             const marker = new THREE.Mesh(
@@ -427,7 +429,18 @@ export default function MapView({ lat, lon, simulationResult, cropZones }: Props
             );
             marker.position.copy(a.pos);
             markerLayer.group.add(marker);
+            markerMeshes.push(marker);
           }
+
+          // Scale markers inversely with camera distance to keep constant screen size
+          eng.onUpdate(() => {
+            const camPos = eng.camera.position;
+            for (const m of markerMeshes) {
+              const dist = camPos.distanceTo(m.position);
+              const scale = Math.max(0.3, dist / 80);
+              m.scale.setScalar(scale);
+            }
+          });
 
           // ── Annotation click handler ──
           eng.annotations.onAnnotationClick((annotation: Annotation) => {
