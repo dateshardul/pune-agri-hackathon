@@ -336,7 +336,7 @@ export default function MapView({ lat, lon, simulationResult, cropZones }: Props
               heightData: rawHeight,
               width: elevResult.width,
               height: elevResult.height,
-              heightScale: elevRange > 0 ? 6 / elevRange : 1,
+              heightScale: elevRange > 0 ? 2 / elevRange : 1,
             });
             elevMin = elevResult.min_elevation;
             elevMax = elevResult.max_elevation;
