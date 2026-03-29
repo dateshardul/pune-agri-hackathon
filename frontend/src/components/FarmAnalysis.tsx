@@ -350,18 +350,6 @@ function PestRiskSection({ pestRisk }: { pestRisk: PestRisk }) {
 
 // ── Detailed Activity Timeline ────────────────────────────────────────
 
-const categoryColors: Record<string, { bg: string; color: string; icon: string }> = {
-  land_prep:       { bg: '#efebe9', color: '#5d4037', icon: '🔨' },
-  sowing:          { bg: '#e8f5e9', color: '#2e7d32', icon: '🌱' },
-  irrigation:      { bg: '#e3f2fd', color: '#1565c0', icon: '💧' },
-  fertilizer:      { bg: '#fff3e0', color: '#e65100', icon: '🧪' },
-  weeding:         { bg: '#f3e5f5', color: '#6a1b9a', icon: '🌿' },
-  monitoring:      { bg: '#e0f7fa', color: '#00695c', icon: '👁' },
-  pest_management: { bg: '#fce4ec', color: '#c62828', icon: '🐛' },
-  harvest:         { bg: '#fff8e1', color: '#f57f17', icon: '🌾' },
-  post_harvest:    { bg: '#eceff1', color: '#455a64', icon: '📦' },
-};
-
 // Farming phases in order
 const PHASES: { key: string; label: string; icon: string; color: string }[] = [
   { key: 'land_prep', label: 'Land Preparation', icon: '🔨', color: '#5d4037' },
