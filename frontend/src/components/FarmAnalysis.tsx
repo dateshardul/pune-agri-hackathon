@@ -362,18 +362,37 @@ const categoryColors: Record<string, { bg: string; color: string; icon: string }
   post_harvest:    { bg: '#eceff1', color: '#455a64', icon: '📦' },
 };
 
+// Farming phases in order
+const PHASES: { key: string; label: string; icon: string; color: string }[] = [
+  { key: 'land_prep', label: 'Land Preparation', icon: '🔨', color: '#5d4037' },
+  { key: 'sowing', label: 'Sowing', icon: '🌱', color: '#2e7d32' },
+  { key: 'irrigation', label: 'Irrigation', icon: '💧', color: '#1565c0' },
+  { key: 'fertilizer', label: 'Fertilizer', icon: '🧪', color: '#e65100' },
+  { key: 'weeding', label: 'Weeding & Care', icon: '🌿', color: '#6a1b9a' },
+  { key: 'monitoring', label: 'Monitoring', icon: '👁', color: '#00695c' },
+  { key: 'pest_management', label: 'Pest Management', icon: '🐛', color: '#c62828' },
+  { key: 'harvest', label: 'Harvest', icon: '🌾', color: '#f57f17' },
+  { key: 'post_harvest', label: 'Post-Harvest', icon: '📦', color: '#455a64' },
+];
+
 function DetailedTimeline({ activities }: { activities: CropActivity[] }) {
   const [showAll, setShowAll] = useState(false);
   const displayed = showAll ? activities : activities.filter(a => a.priority === 'critical' || a.category === 'sowing' || a.category === 'harvest');
 
-  // Group into rows of 4 for snake layout
-  const COLS = 4;
-  const rows: CropActivity[][] = [];
-  for (let i = 0; i < displayed.length; i += COLS) {
-    rows.push(displayed.slice(i, i + COLS));
-  }
+  // Find day range for progress bar
+  const minDay = Math.min(...displayed.map(a => a.day));
+  const maxDay = Math.max(...displayed.map(a => a.day));
+  const dayRange = maxDay - minDay || 1;
 
-  let stepNum = 0;
+  // Group by phase
+  const grouped: Record<string, CropActivity[]> = {};
+  displayed.forEach(a => {
+    if (!grouped[a.category]) grouped[a.category] = [];
+    grouped[a.category].push(a);
+  });
+
+  // Get phases that have activities, in order
+  const activePhases = PHASES.filter(p => grouped[p.key]?.length);
 
   return (
     <div>
@@ -383,93 +402,98 @@ function DetailedTimeline({ activities }: { activities: CropActivity[] }) {
           background: 'none', border: '1px solid #ccc', borderRadius: 4,
           padding: '2px 10px', fontSize: '0.75rem', cursor: 'pointer', color: '#555',
         }}>
-          {showAll ? `Critical only (${activities.filter(a => a.priority === 'critical').length})` : `All ${activities.length} activities`}
+          {showAll ? `Critical only` : `All ${activities.length} activities`}
         </button>
       </div>
 
-      {rows.map((row, rowIdx) => {
-        // Snake: even rows L→R, odd rows R→L
-        const isReversed = rowIdx % 2 === 1;
-        const orderedRow = isReversed ? [...row].reverse() : row;
+      {/* Horizontal time progress bar */}
+      <div style={{ position: 'relative', height: 32, background: '#f5f5f5', borderRadius: 6, marginBottom: '1rem', overflow: 'hidden' }}>
+        {activePhases.map(phase => {
+          const items = grouped[phase.key];
+          const phaseStart = Math.min(...items.map(a => a.day));
+          const phaseEnd = Math.max(...items.map(a => a.day));
+          const left = ((phaseStart - minDay) / dayRange) * 100;
+          const width = Math.max(3, ((phaseEnd - phaseStart) / dayRange) * 100);
+          return (
+            <div key={phase.key} title={`${phase.label}: Day ${phaseStart} to ${phaseEnd}`} style={{
+              position: 'absolute', top: 4, bottom: 4,
+              left: `${left}%`, width: `${width}%`,
+              background: phase.color, opacity: 0.75, borderRadius: 4,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '0.6rem', color: '#fff', fontWeight: 600,
+              overflow: 'hidden', whiteSpace: 'nowrap', padding: '0 4px',
+            }}>
+              {width > 8 ? `${phase.icon} ${phase.label}` : phase.icon}
+            </div>
+          );
+        })}
+        {/* Day markers */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', padding: '0 4px' }}>
+          <span style={{ fontSize: '0.55rem', color: '#999' }}>Day {minDay}</span>
+          <span style={{ fontSize: '0.55rem', color: '#999' }}>Day {maxDay}</span>
+        </div>
+      </div>
 
+      {/* Phase-grouped activities */}
+      {activePhases.map((phase, phaseIdx) => {
+        const items = grouped[phase.key];
         return (
-          <div key={rowIdx}>
-            {/* Row of cards */}
-            <div style={{ display: 'flex', gap: '0.5rem', flexDirection: isReversed ? 'row-reverse' : 'row' }}>
-              {row.map((a, colIdx) => {
-                stepNum++;
-                const num = stepNum;
-                const cat = categoryColors[a.category] ?? categoryColors.monitoring;
-                const isLast = colIdx === row.length - 1;
-
-                return (
-                  <div key={num} style={{ flex: '1 1 0', display: 'flex', alignItems: 'stretch', gap: 0 }}>
-                    {/* Card */}
-                    <div style={{
-                      flex: 1, background: '#fff',
-                      border: `2px solid ${a.priority === 'critical' ? cat.color : '#e0e0e0'}`,
-                      borderRadius: 10, padding: '0.55rem 0.65rem',
-                      position: 'relative',
-                      boxShadow: a.priority === 'critical' ? `0 2px 8px ${cat.color}22` : 'none',
-                    }}>
-                      {/* Step badge */}
-                      <div style={{
-                        position: 'absolute', top: -9, left: 10,
-                        width: 20, height: 20, borderRadius: '50%',
-                        background: a.priority === 'critical' ? cat.color : '#9e9e9e',
-                        color: '#fff', fontSize: '0.6rem', fontWeight: 700,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        border: '2px solid #fff',
-                      }}>{num}</div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexWrap: 'wrap', marginTop: 2 }}>
-                        <span style={{
-                          padding: '1px 5px', borderRadius: 3, fontSize: '0.6rem',
-                          background: cat.bg, color: cat.color, fontWeight: 600, whiteSpace: 'nowrap',
-                        }}>{cat.icon} {a.category.replace(/_/g, ' ')}</span>
-                        <span style={{ fontSize: '0.6rem', color: '#999' }}>Day {a.day}</span>
-                      </div>
-                      <div style={{ fontWeight: 600, fontSize: '0.78rem', marginTop: 3, lineHeight: 1.25 }}>{a.activity}</div>
-                      {a.details && <div style={{ fontSize: '0.68rem', color: '#666', marginTop: 2, lineHeight: 1.25 }}>{a.details}</div>}
-                      <div style={{ fontSize: '0.6rem', color: '#aaa', marginTop: 3 }}>{a.date}</div>
-                    </div>
-
-                    {/* Horizontal arrow between cards in same row */}
-                    {!isLast && (
-                      <div style={{ display: 'flex', alignItems: 'center', width: 16, flexShrink: 0 }}>
-                        <div style={{ width: '100%', height: 2, background: '#ccc', position: 'relative' }}>
-                          <div style={{
-                            position: 'absolute', right: -3, top: -3,
-                            width: 0, height: 0,
-                            borderTop: '4px solid transparent', borderBottom: '4px solid transparent',
-                            borderLeft: '5px solid #ccc',
-                          }} />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+          <div key={phase.key} style={{ marginBottom: '0.75rem' }}>
+            {/* Phase header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '0.4rem',
+              padding: '6px 10px', borderRadius: '6px 6px 0 0',
+              background: phase.color, color: '#fff',
+            }}>
+              <span style={{ fontSize: '1rem' }}>{phase.icon}</span>
+              <span style={{ fontWeight: 700, fontSize: '0.82rem' }}>{phase.label}</span>
+              <span style={{ fontSize: '0.7rem', opacity: 0.8, marginLeft: 'auto' }}>
+                Day {Math.min(...items.map(a => a.day))}–{Math.max(...items.map(a => a.day))}
+              </span>
             </div>
 
-            {/* Turn-down connector between rows */}
-            {rowIdx < rows.length - 1 && (
-              <div style={{
-                display: 'flex',
-                justifyContent: isReversed ? 'flex-start' : 'flex-end',
-                padding: '0 24px',
-              }}>
-                <div style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  margin: '2px 0',
+            {/* Activities in this phase */}
+            <div style={{ border: `1px solid ${phase.color}33`, borderTop: 'none', borderRadius: '0 0 6px 6px', overflow: 'hidden' }}>
+              {items.map((a, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
+                  padding: '0.45rem 0.7rem',
+                  background: i % 2 === 0 ? '#fff' : '#fafafa',
+                  borderBottom: i < items.length - 1 ? '1px solid #f0f0f0' : 'none',
                 }}>
-                  <div style={{ width: 2, height: 16, background: '#ccc' }} />
+                  {/* Day badge */}
                   <div style={{
-                    width: 0, height: 0,
-                    borderLeft: '5px solid transparent', borderRight: '5px solid transparent',
-                    borderTop: '6px solid #ccc',
-                  }} />
+                    minWidth: 44, textAlign: 'center', padding: '2px 6px',
+                    borderRadius: 4, fontSize: '0.65rem', fontWeight: 600,
+                    background: a.priority === 'critical' ? '#ffebee' : '#f5f5f5',
+                    color: a.priority === 'critical' ? '#c62828' : '#666',
+                  }}>
+                    Day {a.day}
+                  </div>
+
+                  {/* Content */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <span style={{ fontWeight: 600, fontSize: '0.8rem' }}>{a.activity}</span>
+                      {a.priority === 'critical' && (
+                        <span style={{ padding: '0 5px', borderRadius: 3, fontSize: '0.58rem', background: '#c62828', color: '#fff', fontWeight: 700 }}>
+                          CRITICAL
+                        </span>
+                      )}
+                    </div>
+                    {a.details && <div style={{ fontSize: '0.72rem', color: '#666', marginTop: 1 }}>{a.details}</div>}
+                  </div>
+
+                  {/* Date */}
+                  <div style={{ fontSize: '0.65rem', color: '#aaa', whiteSpace: 'nowrap', paddingTop: 2 }}>{a.date}</div>
                 </div>
+              ))}
+            </div>
+
+            {/* Arrow connector to next phase */}
+            {phaseIdx < activePhases.length - 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', margin: '2px 0' }}>
+                <div style={{ width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: `8px solid ${phase.color}` }} />
               </div>
             )}
           </div>
