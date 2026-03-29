@@ -559,20 +559,13 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
     const allLayers = engine.layers.getAll();
     for (const layer of allLayers) {
       if (layer.name.endsWith(' Zone')) {
-        const isMatch = layer.name.toLowerCase().startsWith((highlightedCrop ?? '').toLowerCase());
         if (!highlightedCrop) {
-          // No highlight — show all at same level
           engine.layers.setVisible(layer.name, true);
           engine.layers.setOpacity(layer.name, 0.6);
-          // Reset Y position
-          layer.group.position.y = 0;
         } else {
+          const isMatch = layer.name.toLowerCase().startsWith(highlightedCrop.toLowerCase());
           engine.layers.setVisible(layer.name, true);
-          engine.layers.setOpacity(layer.name, isMatch ? 0.85 : 0.15);
-          // Raise highlighted crop zone above others
-          layer.group.position.y = isMatch ? 0.5 : -0.1;
-          // Also push highlighted zone's render order forward
-          layer.group.renderOrder = isMatch ? 10 : 0;
+          engine.layers.setOpacity(layer.name, isMatch ? 0.8 : 0.15);
         }
       }
     }
