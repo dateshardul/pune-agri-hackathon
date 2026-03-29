@@ -4,7 +4,7 @@ import {
   type FarmAnalysisRequest, type FarmAnalysisResponse,
   type IrrigationWeek, type FertilizerApplication,
   type WeatherResponse, type SoilResponse, type GroundwaterResult,
-  type CropPlan, type CropZone, type HazardWeek, type TimelineEvent, type LandAnalysis,
+  type CropPlan, type CropActivity, type CropZone, type HazardWeek, type TimelineEvent, type LandAnalysis,
   type PestRisk,
 } from '../services/api';
 import MapView from './MapView';
@@ -348,6 +348,76 @@ function PestRiskSection({ pestRisk }: { pestRisk: PestRisk }) {
   );
 }
 
+// ── Detailed Activity Timeline ────────────────────────────────────────
+
+const categoryColors: Record<string, { bg: string; color: string; icon: string }> = {
+  land_prep:       { bg: '#efebe9', color: '#5d4037', icon: '🔨' },
+  sowing:          { bg: '#e8f5e9', color: '#2e7d32', icon: '🌱' },
+  irrigation:      { bg: '#e3f2fd', color: '#1565c0', icon: '💧' },
+  fertilizer:      { bg: '#fff3e0', color: '#e65100', icon: '🧪' },
+  weeding:         { bg: '#f3e5f5', color: '#6a1b9a', icon: '🌿' },
+  monitoring:      { bg: '#e0f7fa', color: '#00695c', icon: '👁' },
+  pest_management: { bg: '#fce4ec', color: '#c62828', icon: '🐛' },
+  harvest:         { bg: '#fff8e1', color: '#f57f17', icon: '🌾' },
+  post_harvest:    { bg: '#eceff1', color: '#455a64', icon: '📦' },
+};
+
+function DetailedTimeline({ activities }: { activities: CropActivity[] }) {
+  const [showAll, setShowAll] = useState(false);
+  const displayed = showAll ? activities : activities.filter(a => a.priority === 'critical' || a.category === 'sowing' || a.category === 'harvest');
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+        <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Detailed Activity Timeline</h4>
+        <button onClick={() => setShowAll(!showAll)} style={{
+          background: 'none', border: '1px solid #ccc', borderRadius: 4,
+          padding: '2px 10px', fontSize: '0.75rem', cursor: 'pointer', color: '#555',
+        }}>
+          {showAll ? `Show critical only (${activities.filter(a => a.priority === 'critical').length})` : `Show all ${activities.length} activities`}
+        </button>
+      </div>
+      <div style={{ position: 'relative', paddingLeft: '28px' }}>
+        {/* Vertical timeline line */}
+        <div style={{ position: 'absolute', left: 12, top: 0, bottom: 0, width: 2, background: '#e0e0e0' }} />
+        {displayed.map((a, i) => {
+          const cat = categoryColors[a.category] ?? categoryColors.monitoring;
+          return (
+            <div key={i} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.6rem', position: 'relative' }}>
+              {/* Dot on timeline */}
+              <div style={{
+                position: 'absolute', left: -22, top: 4,
+                width: 14, height: 14, borderRadius: '50%',
+                background: a.priority === 'critical' ? cat.color : '#bbb',
+                border: '2px solid #fff', boxShadow: '0 0 0 1px #ddd',
+              }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.7rem', color: '#999', minWidth: 55 }}>Day {a.day}</span>
+                  <span style={{
+                    padding: '1px 8px', borderRadius: 4, fontSize: '0.68rem',
+                    background: cat.bg, color: cat.color, fontWeight: 600,
+                  }}>
+                    {cat.icon} {a.category.replace('_', ' ')}
+                  </span>
+                  {a.priority === 'critical' && (
+                    <span style={{ padding: '1px 6px', borderRadius: 4, fontSize: '0.65rem', background: '#ffebee', color: '#c62828', fontWeight: 600 }}>
+                      critical
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontWeight: 600, fontSize: '0.85rem', marginTop: 2 }}>{a.activity}</div>
+                {a.details && <div style={{ fontSize: '0.78rem', color: '#666', marginTop: 1 }}>{a.details}</div>}
+                <div style={{ fontSize: '0.68rem', color: '#aaa' }}>{a.date}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Per-Crop Accordion ───────────────────────────────────────────────
 
 function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAlternative: (crop: string) => void }) {
@@ -508,6 +578,13 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
           {/* Pest & Disease Risk */}
           {plan.pest_risk && (
             <PestRiskSection pestRisk={plan.pest_risk} />
+          )}
+
+          {/* Detailed Activity Timeline */}
+          {plan.detailed_timeline && plan.detailed_timeline.length > 0 && (
+            <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#fafafa', borderRadius: 8 }}>
+              <DetailedTimeline activities={plan.detailed_timeline} />
+            </div>
           )}
         </div>
       )}

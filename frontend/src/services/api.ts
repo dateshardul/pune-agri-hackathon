@@ -508,6 +508,17 @@ export interface CropPlan {
     mitigations: string[];
   };
   pest_risk?: PestRisk;
+  detailed_timeline?: CropActivity[];
+  unified_score?: Record<string, number>;
+}
+
+export interface CropActivity {
+  date: string;
+  day: number;
+  activity: string;
+  category: string;  // land_prep | sowing | irrigation | fertilizer | weeding | monitoring | pest_management | harvest | post_harvest
+  details: string;
+  priority: string;  // critical | recommended | normal
 }
 
 export interface TimelineEvent {

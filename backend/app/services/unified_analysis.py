@@ -883,6 +883,121 @@ def _build_planting_timeline(crop_plans: list[dict]) -> list[dict]:
     return events
 
 
+def _build_detailed_crop_timeline(plan: dict) -> list[dict]:
+    """Build a detailed day-by-day activity timeline for a single crop.
+
+    Combines sowing calendar, DSSAT fertilizer schedule, AquaCrop irrigation
+    schedule, pest risk windows, and standard agronomic practices into one
+    chronological activity list.
+    """
+    crop = plan["crop"]
+    sowing = plan.get("_sowing_date")
+    harvest = plan.get("_harvest_date")
+    if not sowing or not harvest:
+        return []
+
+    cal = CROP_CALENDAR.get(crop, (11, 1, 120))
+    duration = (harvest - sowing).days
+    activities = []
+
+    def add(day_offset: int, activity: str, category: str, details: str = "", priority: str = "normal"):
+        d = sowing + timedelta(days=day_offset)
+        if d <= harvest:
+            activities.append({
+                "date": d.isoformat(),
+                "day": day_offset,
+                "activity": activity,
+                "category": category,
+                "details": details,
+                "priority": priority,
+            })
+
+    # ── Land Preparation (before sowing) ──
+    add(-21, "Soil testing", "land_prep", "Test soil pH, nutrients, and texture. Plan amendments.", "recommended")
+    add(-14, "Primary tillage / plowing", "land_prep", "Deep plow to break hardpan and improve drainage.", "critical")
+    add(-10, "Apply farmyard manure / compost", "land_prep", "5-10 t/ha organic matter for soil health.", "recommended")
+    add(-7, "Secondary tillage / harrowing", "land_prep", "Break clods, level field, prepare seedbed.", "critical")
+    add(-3, "Pre-sowing irrigation", "land_prep", "Bring soil to field capacity for good germination.", "critical")
+    add(-1, "Seed treatment", "land_prep", "Treat seeds with fungicide + Rhizobium (for pulses).", "recommended")
+
+    # ── Sowing ──
+    add(0, "Sowing / transplanting", "sowing", f"Plant {crop} at recommended spacing and depth.", "critical")
+    add(3, "Post-sowing light irrigation", "irrigation", "Ensure soil moisture for germination.", "critical")
+
+    # ── Early Growth (0-30 days) ──
+    add(7, "Check germination / gap filling", "monitoring", "Replace failed seedlings within 7-10 days.", "recommended")
+    add(14, "First weeding", "weeding", "Remove weeds before they compete for nutrients.", "critical")
+
+    # ── DSSAT Fertilizer Applications ──
+    models = plan.get("models", {})
+    dssat = models.get("dssat")
+    if dssat and isinstance(dssat, dict):
+        apps = dssat.get("applications", [])
+        for app in apps:
+            if isinstance(app, dict):
+                das = app.get("day_after_sowing", 0)
+                timing = app.get("timing", "Fertilizer")
+                product = app.get("product_suggestion", "")
+                n = app.get("n_kg", 0)
+                p = app.get("p_kg", 0)
+                k = app.get("k_kg", 0)
+                detail = f"{timing}: N={n}, P={p}, K={k} kg/ha"
+                if product:
+                    detail += f" ({product})"
+                add(das, f"Fertilizer — {timing}", "fertilizer", detail, "critical")
+
+    # ── AquaCrop Irrigation Schedule ──
+    aquacrop = models.get("aquacrop")
+    if aquacrop and isinstance(aquacrop, dict):
+        schedule = aquacrop.get("schedule", [])
+        for entry in schedule:
+            if isinstance(entry, dict) and entry.get("amount_mm", 0) > 0:
+                week = entry.get("week", 1)
+                das_start = (week - 1) * 7
+                stage = entry.get("crop_stage", "")
+                amt = entry.get("amount_mm", 0)
+                pri = entry.get("priority", "recommended")
+                add(das_start, f"Irrigation — {stage}", "irrigation",
+                    f"Apply {amt}mm water. Stage: {stage}.", pri)
+
+    # ── Pest Monitoring Windows ──
+    pest_risk = plan.get("pest_risk", {})
+    pests = pest_risk.get("pests", [])
+    for pest in pests:
+        if isinstance(pest, dict) and pest.get("risk") in ("moderate", "high", "severe"):
+            name = pest.get("name", "Pest")
+            period = pest.get("peak_period", "")
+            mitigation = pest.get("mitigation", "Monitor and treat if needed.")
+            # Estimate day offset from peak period month
+            # Simple heuristic: midpoint of growing season for general pests
+            add(duration // 3, f"Pest watch — {name}", "pest_management",
+                f"Peak: {period}. {mitigation}", "recommended")
+
+    # ── Mid-Season Activities ──
+    add(28, "Second weeding / inter-cultivation", "weeding", "Remove weeds, loosen topsoil for aeration.", "recommended")
+    add(duration // 2, "Crop health monitoring", "monitoring", "Check for nutrient deficiency symptoms, disease signs.", "recommended")
+
+    # ── Late Season ──
+    if duration > 90:
+        add(duration - 30, "Stop irrigation (for grain crops)", "irrigation",
+            "Allow crop to mature. Excess water delays ripening.", "recommended")
+    add(duration - 14, "Pre-harvest assessment", "monitoring",
+        "Check grain moisture, maturity indicators. Plan harvest logistics.", "recommended")
+
+    # ── Harvest & Post-Harvest ──
+    add(duration, "Harvest", "harvest", f"Harvest {crop} at optimal maturity.", "critical")
+    add(duration + 3, "Threshing / post-harvest processing", "post_harvest",
+        "Thresh, clean, and grade produce.", "recommended")
+    add(duration + 7, "Drying & storage", "post_harvest",
+        "Dry to safe moisture level (12-14%). Store in clean, dry conditions.", "recommended")
+    add(duration + 10, "Residue management", "post_harvest",
+        "Incorporate crop residue into soil or use as mulch. Avoid burning.", "recommended")
+
+    # Sort and deduplicate by date
+    activities.sort(key=lambda a: (a["day"], a["category"]))
+    return activities
+
+
 # -- Phase 5: Combined Recommendations --------------------------------------
 
 def _build_combined_recommendations(
@@ -1062,6 +1177,9 @@ async def _analyze_single_crop(
     plan["unified_score"] = _compute_unified_score(
         wofost_result, aquacrop_result, dssat_result, ozone_result, gw_result, crop,
     )
+
+    # Detailed activity timeline
+    plan["detailed_timeline"] = _build_detailed_crop_timeline(plan)
 
     return plan
 
