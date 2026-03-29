@@ -52,10 +52,11 @@ CROP_CALENDAR: dict[str, tuple[int, int, int]] = {
 }
 
 
-def get_default_sowing_date(crop: str, reference_year: int | None = None) -> date:
+def get_default_sowing_date(crop: str, reference_year: int | None = None, planning: bool = False) -> date:
     """Get the appropriate sowing date for a crop based on Indian crop calendar.
 
-    Uses the most recent completed or upcoming season relative to today.
+    planning=False: picks the most recent PAST season (for simulation with real weather).
+    planning=True: picks the NEXT upcoming season (for farm planning/recommendations).
     """
     cal = CROP_CALENDAR.get(crop, (11, 1, 120))
     sow_month, sow_day, _ = cal
@@ -64,11 +65,18 @@ def get_default_sowing_date(crop: str, reference_year: int | None = None) -> dat
     if reference_year:
         return date(reference_year, sow_month, sow_day)
 
-    # Pick the most recent sowing date that's at least 30 days in the past
+    if planning:
+        # Pick the NEXT upcoming sowing date (for recommendations)
+        candidate = date(today.year, sow_month, sow_day)
+        if candidate < today:
+            # This year's season already passed — use next year
+            candidate = date(today.year + 1, sow_month, sow_day)
+        return candidate
+
+    # Default: pick the most recent sowing date that's at least 30 days in the past
     # (so we have weather data for most of the season)
     candidate = date(today.year, sow_month, sow_day)
     if candidate > today - timedelta(days=30):
-        # This year's season hasn't started or just started — use last year
         candidate = date(today.year - 1, sow_month, sow_day)
     return candidate
 

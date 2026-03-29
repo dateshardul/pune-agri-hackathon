@@ -1081,11 +1081,15 @@ async def _analyze_single_crop(
     """
     plan = {"crop": crop, "zone": zone}
 
-    # Sowing date from CROP_CALENDAR (fast — no API calls)
-    sowing_date = get_default_sowing_date(crop)
+    # Planning date (NEXT season) for display to user
+    planning_sowing = get_default_sowing_date(crop, planning=True)
+    planning_harvest = get_default_harvest_date(crop, planning_sowing)
+
+    # Simulation date (PAST season) for model runs with real weather data
+    sowing_date = get_default_sowing_date(crop, planning=False)
     harvest_date = get_default_harvest_date(crop, sowing_date)
 
-    # Cap harvest to available weather
+    # Cap simulation harvest to available weather
     if weather_data:
         last_weather_date = date.fromisoformat(weather_data[-1].date)
         if harvest_date > last_weather_date:
@@ -1095,8 +1099,8 @@ async def _analyze_single_crop(
     cal = CROP_CALENDAR.get(crop, (11, 1, 120))
     plan["sowing"] = {
         "optimal_period": {
-            "start": sowing_date.isoformat(),
-            "end": (sowing_date + timedelta(days=14)).isoformat(),
+            "start": planning_sowing.isoformat(),
+            "end": (planning_sowing + timedelta(days=14)).isoformat(),
             "expected_yield_kg_ha": CROP_BASE_YIELDS.get(crop, 3000),
             "vs_standard_pct": "+5%",
             "risk_level": "low",
@@ -1106,8 +1110,9 @@ async def _analyze_single_crop(
         "best_week": f"{sowing_date.isoformat()} to {(sowing_date + timedelta(days=6)).isoformat()}",
     }
 
-    plan["_sowing_date"] = sowing_date
-    plan["_harvest_date"] = harvest_date
+    # Use planning dates for display (timeline, recommendations)
+    plan["_sowing_date"] = planning_sowing
+    plan["_harvest_date"] = planning_harvest
 
     # Run all 3 models concurrently via shared thread pool
     loop = asyncio.get_event_loop()
