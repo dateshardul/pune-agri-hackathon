@@ -1002,7 +1002,7 @@ export default function FarmAnalysis() {
       latitude: lat, longitude: lon, crops: cropsToRun,
       field_area_ha: fieldArea,
       ...(adjSowing !== 'auto' ? { preferred_sowing: adjSowing } : {}),
-      ...(adjWater < 1400 ? { water_budget_mm: adjWater } : {}),
+      ...(adjWater !== 1400 ? { water_budget_mm: adjWater } : {}),
     };
 
     try {

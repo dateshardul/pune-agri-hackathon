@@ -1073,6 +1073,8 @@ async def _analyze_single_crop(
     ozone_result: dict | None,
     gw_result: dict | None,
     today: date,
+    preferred_sowing: str | None = None,
+    water_budget_mm: float | None = None,
 ) -> dict:
     """Run complete analysis for a single crop: sowing, models, hazards, feasibility, score.
 
@@ -1081,12 +1083,23 @@ async def _analyze_single_crop(
     """
     plan = {"crop": crop, "zone": zone}
 
-    # Planning date (NEXT season) for display to user
-    planning_sowing = get_default_sowing_date(crop, planning=True)
-    planning_harvest = get_default_harvest_date(crop, planning_sowing)
+    # If user provided a preferred sowing date, use it for both display and simulation
+    if preferred_sowing:
+        try:
+            user_sowing = date.fromisoformat(preferred_sowing)
+            planning_sowing = user_sowing
+            sowing_date = user_sowing
+        except ValueError:
+            # preferred_sowing might be a season name like "kharif" or "rabi"
+            planning_sowing = get_default_sowing_date(crop, planning=True)
+            sowing_date = get_default_sowing_date(crop, planning=False)
+    else:
+        # Planning date (NEXT season) for display to user
+        planning_sowing = get_default_sowing_date(crop, planning=True)
+        # Simulation date (PAST season) for model runs with real weather data
+        sowing_date = get_default_sowing_date(crop, planning=False)
 
-    # Simulation date (PAST season) for model runs with real weather data
-    sowing_date = get_default_sowing_date(crop, planning=False)
+    planning_harvest = get_default_harvest_date(crop, planning_sowing)
     harvest_date = get_default_harvest_date(crop, sowing_date)
 
     # Cap simulation harvest to available weather
@@ -1131,9 +1144,11 @@ async def _analyze_single_crop(
 
     aquacrop_future = None
     if crop in AQUACROP_CROPS:
-        aquacrop_future = loop.run_in_executor(_model_executor, lambda c=crop, sd=sowing_date, cp=clay_pct: _run_aquacrop_safe(
+        # If user set a water budget, pass as irrigation_mm to AquaCrop
+        irrig_mm = water_budget_mm if water_budget_mm else 0.0
+        aquacrop_future = loop.run_in_executor(_model_executor, lambda c=crop, sd=sowing_date, cp=clay_pct, im=irrig_mm: _run_aquacrop_safe(
             weather_data, latitude=lat, longitude=lon, crop=c,
-            sowing_date=sd, clay_pct=cp,
+            sowing_date=sd, clay_pct=cp, irrigation_mm=im,
         ))
 
     dssat_future = None
@@ -1315,6 +1330,8 @@ async def analyze_farm(
             ozone_result=ozone_result,
             gw_result=gw_result,
             today=today,
+            preferred_sowing=preferred_sowing,
+            water_budget_mm=water_budget_mm,
         )
         for crop in crops
     ])
