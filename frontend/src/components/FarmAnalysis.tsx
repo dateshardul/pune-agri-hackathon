@@ -674,6 +674,7 @@ export default function FarmAnalysis() {
   const [simProgress, setSimProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [notFarmableLand, setNotFarmableLand] = useState<LandAnalysis | null>(null);
+  const [lulcWarning, setLulcWarning] = useState<string | null>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Preferences for Step 5 re-run
@@ -845,6 +846,13 @@ export default function FarmAnalysis() {
         return;
       }
 
+      // Capture LULC warning (non-blocking)
+      if (typeof resAny.lulc_warning === 'string') {
+        setLulcWarning(resAny.lulc_warning);
+      } else {
+        setLulcWarning(null);
+      }
+
       steps.forEach(s => { s.status = 'done'; });
       setSimSteps([...steps]);
       setSimProgress(100);
@@ -872,7 +880,7 @@ export default function FarmAnalysis() {
 
   const resetToInput = () => {
     setPhase('input');
-    setResult(null); setError(null); setNotFarmableLand(null);
+    setResult(null); setError(null); setNotFarmableLand(null); setLulcWarning(null);
     setWeather(null); setSoil(null); setGroundwater(null); setOzoneData(null);
     setCropRecs([]); setSelectedCrops([]);
   };
@@ -1196,6 +1204,12 @@ export default function FarmAnalysis() {
           {usingMock && (
             <div style={{ background: '#fff8e1', padding: '0.5rem 0.75rem', borderRadius: 6, fontSize: '0.85rem', color: '#f57f17', marginBottom: '1rem' }}>
               Backend processing — showing simulated analysis for demo.
+            </div>
+          )}
+
+          {lulcWarning && (
+            <div style={{ background: '#fff8e1', border: '1px solid #ffb300', padding: '0.75rem 1rem', borderRadius: 8, fontSize: '0.88rem', color: '#e65100', marginBottom: '1rem' }}>
+              <strong>Land Use Warning:</strong> {lulcWarning}
             </div>
           )}
 
