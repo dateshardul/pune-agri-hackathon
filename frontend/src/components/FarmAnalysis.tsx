@@ -197,13 +197,12 @@ function PlantingTimeline({ events, cropPlans }: { events: TimelineEvent[]; crop
   const bars: { crop: string; start: number; end: number; color: string }[] = [];
 
   for (const plan of cropPlans) {
-    if (!plan.feasibility.viable && plan.feasibility.severity === 'impossible') continue;
+    if (plan.feasibility && !plan.feasibility.viable && plan.feasibility.severity === 'impossible') continue;
     const sowMonth = plan.sowing?.best_month ?? '';
     const sowIdx = monthIndex(sowMonth);
-    // Estimate harvest: use events or default 4 months
-    const harvestEvent = events.find(e => e.crops.includes(plan.crop) && e.action.toLowerCase().includes('harvest'));
+    const harvestEvent = events.find(e => e.crops?.includes(plan.crop) && e.action?.toLowerCase().includes('harvest'));
     const endIdx = harvestEvent ? monthIndex(harvestEvent.month) : Math.min(11, sowIdx + 4);
-    bars.push({ crop: plan.crop, start: sowIdx, end: endIdx, color: plan.zone.color });
+    bars.push({ crop: plan.crop, start: sowIdx, end: endIdx, color: plan.zone?.color ?? '#4caf50' });
   }
 
   if (bars.length === 0) return null;
@@ -309,7 +308,7 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
           padding: '2px 10px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 600,
           background: sev.border, color: '#fff', textTransform: 'capitalize',
         }}>
-          {plan.zone.type}
+          {plan.zone?.type ?? 'field'}
         </span>
         <span style={{
           padding: '2px 10px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 600,
@@ -363,11 +362,11 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem', fontSize: '0.85rem' }}>
             <div>
               <span style={{ color: '#666' }}>Zone: </span>
-              <strong style={{ textTransform: 'capitalize' }}>{plan.zone.type}</strong>
-              <span style={{ color: '#999' }}> ({plan.zone.elevation_range[0]}–{plan.zone.elevation_range[1]}m)</span>
+              <strong style={{ textTransform: 'capitalize' }}>{plan.zone?.type ?? 'field'}</strong>
+              {plan.zone?.elevation_range && <span style={{ color: '#999' }}> ({plan.zone.elevation_range[0]}–{plan.zone.elevation_range[1]}m)</span>}
             </div>
-            <div><span style={{ color: '#666' }}>Area: </span><strong>{plan.zone.area_ha} ha</strong></div>
-            <div style={{ color: '#666', fontStyle: 'italic' }}>{plan.zone.reason}</div>
+            {plan.zone?.area_ha && <div><span style={{ color: '#666' }}>Area: </span><strong>{plan.zone.area_ha} ha</strong></div>}
+            {plan.zone?.reason && <div style={{ color: '#666', fontStyle: 'italic' }}>{plan.zone.reason}</div>}
           </div>
 
           {/* Sowing card */}
@@ -756,7 +755,11 @@ export default function FarmAnalysis() {
     };
 
     try {
-      const res = await analyzeFarm(req);
+      // Race the API call against a 90-second timeout
+      const res = await Promise.race([
+        analyzeFarm(req),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 90000)),
+      ]);
       clearTimers();
       steps.forEach(s => { s.status = 'done'; });
       setSimSteps([...steps]);
@@ -1127,7 +1130,7 @@ export default function FarmAnalysis() {
           <section className="accent-blue farm-card" style={{ padding: '0.5rem' }}>
             <div id="terrain">
               <MapView lat={lat} lon={lon} simulationResult={null}
-                cropZones={cropPlans.filter(p => p.feasibility.viable || p.feasibility.severity === 'warning').map(p => ({ ...p.zone, crop: p.crop }))} />
+                cropZones={cropPlans.filter(p => p.feasibility?.viable !== false).map(p => ({ ...(p.zone ?? {}), crop: p.crop }))} />
             </div>
           </section>
 
