@@ -365,7 +365,8 @@ export default function MapView({ lat, lon, simulationResult, cropZones }: Props
             const { height_data: hData, width: gridW, height: gridH, min_elevation: eMin, max_elevation: eMax } = elevResult;
             const eRange = eMax - eMin;
             const hScl = eRange > 0 ? 2 / eRange : 1;
-            const planeSize = 28;
+            // Match terrain mesh size: TerrainMesh uses width * 0.2
+            const planeSize = gridW * 0.2;
             const segs = Math.min(gridW - 1, 127);
 
             cropZones.forEach((cz) => {
