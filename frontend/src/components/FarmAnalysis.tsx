@@ -1191,11 +1191,11 @@ export default function FarmAnalysis() {
           <div style={{ margin: '1.25rem 0' }}>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.75rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                Latitude: <input type="number" step="0.01" value={lat} onChange={e => setLat(parseFloat(e.target.value) || 0)}
+                Latitude: <input type="number" step="any" value={lat} onChange={e => setLat(parseFloat(e.target.value) || 0)}
                   style={{ width: 90, padding: '6px 8px', borderRadius: 6, border: '1px solid #ccc' }} />
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                Longitude: <input type="number" step="0.01" value={lon} onChange={e => setLon(parseFloat(e.target.value) || 0)}
+                Longitude: <input type="number" step="any" value={lon} onChange={e => setLon(parseFloat(e.target.value) || 0)}
                   style={{ width: 90, padding: '6px 8px', borderRadius: 6, border: '1px solid #ccc' }} />
               </label>
               <div style={{ display: 'flex', gap: '0.4rem' }}>
@@ -1237,7 +1237,7 @@ export default function FarmAnalysis() {
               padding: '4px 12px', fontSize: '0.8rem', cursor: 'pointer',
             }}>&larr; Back</button>
           </div>
-          <p>{lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E &middot; {fieldArea} hectares</p>
+          <p>{lat.toFixed(5)}&deg;N, {lon.toFixed(5)}&deg;E &middot; {fieldArea} hectares</p>
 
           <div style={{ marginBottom: '1rem', borderRadius: 8, overflow: 'hidden' }}>
             <MapView lat={lat} lon={lon} simulationResult={null} />
@@ -1274,7 +1274,7 @@ export default function FarmAnalysis() {
                 padding: '4px 12px', fontSize: '0.8rem', cursor: 'pointer',
               }}>&larr; Change Location</button>
             </div>
-            <p style={{ color: '#666', margin: '0 0 1rem' }}>{lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E &middot; {fieldArea} ha</p>
+            <p style={{ color: '#666', margin: '0 0 1rem' }}>{lat.toFixed(5)}&deg;N, {lon.toFixed(5)}&deg;E &middot; {fieldArea} ha</p>
 
             <div style={{ marginBottom: '1rem', borderRadius: 8, overflow: 'hidden' }}>
               <MapView lat={lat} lon={lon} simulationResult={null} />
@@ -1408,7 +1408,7 @@ export default function FarmAnalysis() {
               padding: '4px 12px', fontSize: '0.8rem', cursor: 'pointer',
             }}>&larr; Change Crops</button>
           </div>
-          <p>{selectedCrops.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')} at {lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E</p>
+          <p>{selectedCrops.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')} at {lat.toFixed(5)}&deg;N, {lon.toFixed(5)}&deg;E</p>
 
           <div style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: 10, padding: '1.25rem', margin: '1rem 0' }}>
             {simSteps.map((step, i) => (
@@ -1447,7 +1447,7 @@ export default function FarmAnalysis() {
               }}>Download Report</button>
             </div>
             <div style={{ fontSize: '0.85rem', color: '#666' }}>
-              {selectedCrops.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')} &middot; {lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E &middot; {fieldArea} ha
+              {selectedCrops.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')} &middot; {lat.toFixed(5)}&deg;N, {lon.toFixed(5)}&deg;E &middot; {fieldArea} ha
             </div>
           </div>
 

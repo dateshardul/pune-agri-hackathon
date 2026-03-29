@@ -82,7 +82,7 @@ const containerStyle = {
 };
 
 const panelStyle = {
-  position: 'absolute' as const, top: '12px', right: '12px',
+  position: 'absolute' as const, top: '72px', right: '12px',
   background: 'rgba(0,0,0,0.8)', color: '#fff',
   padding: '10px 14px', borderRadius: '8px', fontSize: '0.78rem',
   minWidth: '160px',
@@ -367,7 +367,8 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
             const tileX = Math.floor((lon + 180) / 360 * n);
             const latRad = lat * Math.PI / 180;
             const tileY = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
-            const tileUrl = `https://tile.openstreetmap.org/${zoom}/${tileX}/${tileY}.png`;
+            // ESRI World Imagery — free satellite tiles
+            const tileUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${tileY}/${tileX}`;
             const mapTex = new THREE.TextureLoader().load(tileUrl);
             mapTex.colorSpace = THREE.SRGBColorSpace;
             const groundSize = terrainRef.current ? (elevResult?.width ?? 64) * 0.2 * 3 : 60;
@@ -832,7 +833,28 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
             </span>
           </div>
 
-          {/* Top-right: layer toggle panel */}
+          {/* Compass */}
+          <div style={{
+            position: 'absolute', top: '12px', right: '12px',
+            width: 50, height: 50,
+            background: 'rgba(255,255,255,0.9)', borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            border: '2px solid #ddd', zIndex: 5,
+          }}>
+            <svg width="36" height="36" viewBox="0 0 36 36">
+              {/* North arrow (red) */}
+              <polygon points="18,2 22,18 18,14 14,18" fill="#c62828" />
+              {/* South arrow (grey) */}
+              <polygon points="18,34 22,18 18,22 14,18" fill="#bbb" />
+              <text x="18" y="10" textAnchor="middle" fontSize="7" fontWeight="bold" fill="#c62828">N</text>
+              <text x="18" y="32" textAnchor="middle" fontSize="6" fill="#999">S</text>
+              <text x="5" y="20" textAnchor="middle" fontSize="6" fill="#999">W</text>
+              <text x="31" y="20" textAnchor="middle" fontSize="6" fill="#999">E</text>
+            </svg>
+          </div>
+
+          {/* Top-right: layer toggle panel (below compass) */}
           {layers.length > 0 && (
             <div style={panelStyle}>
               <div style={{ fontWeight: 600, marginBottom: '6px', fontSize: '0.82rem' }}>Layers</div>
