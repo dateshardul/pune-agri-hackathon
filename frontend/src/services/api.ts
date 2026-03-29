@@ -315,6 +315,23 @@ export function getElevation(lat: number, lon: number, size?: number) {
   return fetchJSON<ElevationData>(`${API_BASE}/elevation/dem?${params}`);
 }
 
+// --- Land Cover ---
+
+export interface LandcoverData {
+  cropland_pct: number;
+  trees_pct: number;
+  built_pct: number;
+  water_pct: number;
+  bare_pct: number;
+  grass_pct: number;
+  usable_area_ha: number;
+  source: string;
+}
+
+export function getLandcover(lat: number, lon: number) {
+  return fetchJSON<LandcoverData>(`${API_BASE}/data/landcover?lat=${lat}&lon=${lon}`);
+}
+
 // --- Forecast ---
 
 export interface ForecastDay {

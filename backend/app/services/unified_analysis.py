@@ -51,8 +51,8 @@ CROP_WATER_NEED = {
 
 # Zone colors for terrain visualization
 ZONE_COLORS = [
-    "#4caf50", "#2196f3", "#ff9800", "#9c27b0", "#e91e63",
-    "#00bcd4", "#8bc34a", "#ffc107", "#3f51b5", "#795548",
+    "#2e7d32", "#1565c0", "#e65100", "#6a1b9a", "#c62828",
+    "#00695c", "#33691e", "#ef6c00", "#283593", "#4e342e",
 ]
 
 # Crop-specific pest/disease calendars
@@ -1110,17 +1110,20 @@ async def _analyze_single_crop(
 
     season = CROP_SEASONS.get(crop, "unknown")
     cal = CROP_CALENDAR.get(crop, (11, 1, 120))
+    # Land prep starts ~21 days before sowing
+    land_prep_start = planning_sowing - timedelta(days=21)
     plan["sowing"] = {
         "optimal_period": {
-            "start": planning_sowing.isoformat(),
-            "end": (planning_sowing + timedelta(days=14)).isoformat(),
+            "start": land_prep_start.isoformat(),
+            "end": planning_harvest.isoformat(),
+            "sowing_date": planning_sowing.isoformat(),
             "expected_yield_kg_ha": CROP_BASE_YIELDS.get(crop, 3000),
             "vs_standard_pct": "+5%",
             "risk_level": "low",
         },
         "season": season,
-        "best_month": sowing_date.strftime("%B"),
-        "best_week": f"{sowing_date.isoformat()} to {(sowing_date + timedelta(days=6)).isoformat()}",
+        "best_month": planning_sowing.strftime("%B"),
+        "best_week": f"{planning_sowing.isoformat()} to {(planning_sowing + timedelta(days=6)).isoformat()}",
     }
 
     # Use planning dates for display (timeline, recommendations)

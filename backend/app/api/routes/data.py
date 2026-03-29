@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.models.schemas import WeatherResponse, SoilResponse
 from app.services.nasa_power import fetch_weather
+from app.services.landcover import fetch_landcover
 from app.services.soilgrids import fetch_soil
 from app.services.forecast import fetch_forecast
 from app.services.copernicus_cds import fetch_era5_weather, get_era5_summary
@@ -99,6 +100,18 @@ async def get_era5_summary_endpoint(
         raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"CDS API error: {e}")
+
+
+@router.get("/landcover")
+async def get_landcover(
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+):
+    """Fetch ESA WorldCover 10m land use/land cover classification."""
+    try:
+        return await fetch_landcover(lat, lon)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Landcover error: {e}")
 
 
 @router.get("/api-stats")

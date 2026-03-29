@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, Component, type ReactNode } from 'react';
 import {
-  getCrops, analyzeFarm, getWeather, getSoil, getGroundwater, getOzone, getElevation,
+  getCrops, analyzeFarm, getWeather, getSoil, getGroundwater, getOzone, getElevation, getLandcover, type LandcoverData,
   type FarmAnalysisRequest, type FarmAnalysisResponse,
   type IrrigationWeek, type FertilizerApplication,
   type WeatherResponse, type SoilResponse, type GroundwaterResult,
@@ -919,6 +919,7 @@ export default function FarmAnalysis() {
   // Step 3: Crop recommendations
   const [cropRecs, setCropRecs] = useState<CropRecommendation[]>([]);
   const [selectedCrops, setSelectedCrops] = useState<string[]>([]);
+  const [landNotFarmable, setLandNotFarmable] = useState<string | null>(null);
 
   // Step 4-5: Simulation results
   const [result, setResult] = useState<FarmAnalysisResponse | null>(null);
@@ -980,12 +981,13 @@ export default function FarmAnalysis() {
     };
 
     try {
-      const [wRes, sRes, gRes, oRes, eRes] = await Promise.allSettled([
+      const [wRes, sRes, gRes, oRes, eRes, lcRes] = await Promise.allSettled([
         getWeather(lat, lon),
         getSoil(lat, lon),
         getGroundwater(lat, lon),
         getOzone(lat, lon, 'wheat'),
         getElevation(lat, lon),
+        getLandcover(lat, lon),
       ]);
 
       if (eRes.status === 'fulfilled') {
@@ -1025,6 +1027,18 @@ export default function FarmAnalysis() {
       advance(6, '72% cropland, 15% trees', 88);
       await new Promise(r => setTimeout(r, 300));
       advance(7, '78% sun exposure', 100);
+
+      // LULC feasibility check — warn before crop selection
+      if (lcRes.status === 'fulfilled') {
+        const lc = lcRes.value as LandcoverData;
+        if (lc.cropland_pct < 5 && lc.built_pct > 50) {
+          setLandNotFarmable(`This location is ${lc.built_pct.toFixed(0)}% built-up area with only ${lc.cropland_pct.toFixed(0)}% cropland. Farming is not feasible here.`);
+        } else if (lc.water_pct > 50) {
+          setLandNotFarmable(`This location is ${lc.water_pct.toFixed(0)}% water body. Farming is not possible here.`);
+        } else {
+          setLandNotFarmable(null);
+        }
+      }
 
       const w = wRes.status === 'fulfilled' ? wRes.value : null;
       const s = sRes.status === 'fulfilled' ? sRes.value : null;
@@ -1333,8 +1347,23 @@ export default function FarmAnalysis() {
             </div>
           </section>
 
+          {/* LULC Warning — shown before crop selection */}
+          {landNotFarmable && (
+            <section style={{
+              background: '#ffebee', border: '2px solid #c62828', borderRadius: 10,
+              padding: '1.25rem', marginBottom: '1rem',
+            }}>
+              <h3 style={{ color: '#c62828', margin: '0 0 0.5rem' }}>Land Not Suitable for Farming</h3>
+              <p style={{ color: '#555', margin: '0 0 0.75rem' }}>{landNotFarmable}</p>
+              <button onClick={resetToInput} style={{
+                padding: '8px 20px', background: '#c62828', color: '#fff', border: 'none',
+                borderRadius: 6, cursor: 'pointer', fontWeight: 600,
+              }}>Try a Different Location</button>
+            </section>
+          )}
+
           {/* Crop Recommendations */}
-          <section className="accent-blue farm-card">
+          <section className="accent-blue farm-card" style={{ opacity: landNotFarmable ? 0.4 : 1, pointerEvents: landNotFarmable ? 'none' : 'auto' }}>
             <h2>Recommended Crops for Your Land</h2>
             <p style={{ color: '#666', marginBottom: '1rem' }}>Based on your soil, weather, groundwater, and ozone analysis. Select one or more crops to get a detailed farming plan.</p>
 
