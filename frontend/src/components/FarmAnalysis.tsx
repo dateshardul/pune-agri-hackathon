@@ -284,8 +284,9 @@ function HazardCalendar({ weeks }: { weeks: HazardWeek[] }) {
 // ── Per-Crop Accordion ───────────────────────────────────────────────
 
 function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAlternative: (crop: string) => void }) {
-  const [expanded, setExpanded] = useState(plan.feasibility.viable);
-  const sev = severityStyles[plan.feasibility.severity] ?? severityStyles.ok;
+  const feasibility = plan.feasibility ?? { viable: true, severity: 'ok' as const, reasons: [], alternatives: [] };
+  const [expanded, setExpanded] = useState(feasibility.viable);
+  const sev = severityStyles[feasibility.severity] ?? severityStyles.ok;
 
   const aquacrop = plan.models?.aquacrop as Record<string, unknown> | null;
   const dssat = plan.models?.dssat as Record<string, unknown> | null;
@@ -797,7 +798,11 @@ export default function FarmAnalysis() {
 
   // Extract data from result
   const land = result?.land_analysis;
-  const cropPlans = result?.crop_plans ?? [];
+  const defaultFeasibility = { viable: true, severity: 'ok' as const, reasons: [] as string[], alternatives: [] as {crop:string;reason:string}[] };
+  const cropPlans = (result?.crop_plans ?? []).map(p => ({
+    ...p,
+    feasibility: p.feasibility ?? defaultFeasibility,
+  }));
   const timeline = result?.planting_timeline ?? [];
   // unified_score may be at top level (mock) or inside first crop_plan (backend)
   const score = (result as Record<string, unknown>)?.unified_score as Record<string, number> | undefined
