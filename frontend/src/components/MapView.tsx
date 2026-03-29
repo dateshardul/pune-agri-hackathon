@@ -838,24 +838,45 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
           </div>
 
           {/* Top-right: layer toggle panel (below compass) */}
-          {layers.length > 0 && (
-            <div style={panelStyle}>
-              <div style={{ fontWeight: 600, marginBottom: '6px', fontSize: '0.82rem' }}>Layers</div>
-              {layers.map((layer) => (
-                <label key={layer.name} style={{
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  marginBottom: '4px', cursor: 'pointer', fontSize: '0.78rem',
-                }}>
-                  <input
-                    type="checkbox"
-                    checked={layer.visible}
-                    onChange={() => toggleLayer(layer.name)}
-                    style={{ accentColor: '#00d4ff' }}
-                  />
-                  {layer.name}
-                </label>
-              ))}
-            </div>
+          {layers.length > 0 && (() => {
+            const baseLayers = layers.filter(l => !l.name.startsWith('  ') && l.name !== 'Crop Zones');
+            const cropZoneLayers = layers.filter(l => l.name.startsWith('  '));
+            const hasCropZones = cropZoneLayers.length > 0;
+
+            return (
+              <div style={panelStyle}>
+                <div style={{ fontWeight: 600, marginBottom: '6px', fontSize: '0.82rem' }}>Layers</div>
+                {baseLayers.map((layer) => (
+                  <label key={layer.name} style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    marginBottom: '3px', cursor: 'pointer', fontSize: '0.76rem',
+                  }}>
+                    <input type="checkbox" checked={layer.visible}
+                      onChange={() => toggleLayer(layer.name)} style={{ accentColor: '#00d4ff' }} />
+                    {layer.name}
+                  </label>
+                ))}
+
+                {hasCropZones && (
+                  <>
+                    <div style={{ fontWeight: 600, marginTop: '8px', marginBottom: '4px', fontSize: '0.78rem', color: '#4caf50', borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: '6px' }}>
+                      Crop Zones
+                    </div>
+                    {cropZoneLayers.map((layer) => (
+                      <label key={layer.name} style={{
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        marginBottom: '3px', cursor: 'pointer', fontSize: '0.74rem', paddingLeft: '8px',
+                      }}>
+                        <input type="checkbox" checked={layer.visible}
+                          onChange={() => toggleLayer(layer.name)} style={{ accentColor: '#4caf50' }} />
+                        {layer.name.trim()}
+                      </label>
+                    ))}
+                  </>
+                )}
+              </div>
+            );
+          })()
           )}
 
           {/* Bottom-left: annotation info card */}

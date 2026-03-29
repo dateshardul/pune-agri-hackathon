@@ -10,6 +10,19 @@ import {
 import MapView from './MapView';
 import AdvisoryChat from './AdvisoryChat';
 
+// ── Tooltip help icon ───────────────────────────────────────────────
+function HelpTip({ text }: { text: string }) {
+  return (
+    <span title={text} style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: 16, height: 16, borderRadius: '50%',
+      background: '#e0e0e0', color: '#666',
+      fontSize: '0.6rem', fontWeight: 700, cursor: 'help',
+      marginLeft: 4, verticalAlign: 'middle',
+    }}>?</span>
+  );
+}
+
 // Error boundary to catch render crashes and show error instead of blank screen
 class ResultsErrorBoundary extends Component<{ children: ReactNode; onReset: () => void }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
@@ -777,18 +790,18 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
 
 function LandAnalysisCards({ land }: { land: LandAnalysis }) {
   const items = [
-    { label: 'Elevation', value: `${land.elevation.min}–${land.elevation.max}m`, sub: `mean ${land.elevation.mean}m` },
-    { label: 'Slope', value: `${land.elevation.slope_pct}%`, sub: 'gradient' },
-    { label: 'Cropland', value: `${land.landcover.cropland_pct}%`, sub: 'usable for farming' },
+    { label: 'Elevation', value: `${land.elevation.min}–${land.elevation.max}m`, sub: `mean ${land.elevation.mean}m`, tip: 'Height above sea level — affects temperature and crop suitability' },
+    { label: 'Slope', value: `${land.elevation.slope_pct}%`, sub: 'gradient', tip: 'How steep the land is — affects water drainage and erosion' },
+    { label: 'Cropland', value: `${land.landcover.cropland_pct}%`, sub: 'usable for farming', tip: 'Percentage of land classified as agricultural by satellite (ESA WorldCover 10m)' },
     { label: 'Tree Cover', value: `${land.landcover.trees_pct}%`, sub: '' },
-    { label: 'Sun Exposure', value: `${land.hillshade.sun_exposure_pct}%`, sub: `${land.hillshade.shaded_pct}% shaded` },
-    { label: 'Usable Area', value: `${land.landcover.usable_area_ha} ha`, sub: 'cropland only' },
+    { label: 'Sun Exposure', value: `${land.hillshade.sun_exposure_pct}%`, sub: `${land.hillshade.shaded_pct}% shaded`, tip: 'How much sunlight the field receives based on terrain shape and orientation' },
+    { label: 'Usable Area', value: `${land.landcover.usable_area_ha} ha`, sub: 'cropland only', tip: 'Total area classified as cropland — excludes trees, buildings, water' },
   ];
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.6rem' }}>
       {items.map(it => (
         <div key={it.label} style={cardStyle}>
-          <div style={{ fontSize: '0.7rem', color: '#666' }}>{it.label}</div>
+          <div style={{ fontSize: '0.7rem', color: '#666' }}>{it.label}{it.tip && <HelpTip text={it.tip} />}</div>
           <div style={{ fontSize: '1.15rem', fontWeight: 700 }}>{it.value}</div>
           {it.sub && <div style={{ fontSize: '0.68rem', color: '#999' }}>{it.sub}</div>}
         </div>
@@ -1029,22 +1042,30 @@ export default function FarmAnalysis() {
       advance(7, '78% sun exposure', 100);
 
       // LULC feasibility check — warn before crop selection
+      let isNotFarmable = false;
       if (lcRes.status === 'fulfilled') {
         const lc = lcRes.value as LandcoverData;
         if (lc.cropland_pct < 5 && lc.built_pct > 50) {
           setLandNotFarmable(`This location is ${lc.built_pct.toFixed(0)}% built-up area with only ${lc.cropland_pct.toFixed(0)}% cropland. Farming is not feasible here.`);
+          isNotFarmable = true;
         } else if (lc.water_pct > 50) {
           setLandNotFarmable(`This location is ${lc.water_pct.toFixed(0)}% water body. Farming is not possible here.`);
+          isNotFarmable = true;
         } else {
           setLandNotFarmable(null);
         }
       }
 
-      const w = wRes.status === 'fulfilled' ? wRes.value : null;
-      const s = sRes.status === 'fulfilled' ? sRes.value : null;
-      const g = gRes.status === 'fulfilled' ? gRes.value : null;
-      const recs = recommendCrops(w, s, g);
-      setCropRecs(recs);
+      // Skip crop recommendation computation if land not farmable — save time
+      if (!isNotFarmable) {
+        const w = wRes.status === 'fulfilled' ? wRes.value : null;
+        const s = sRes.status === 'fulfilled' ? sRes.value : null;
+        const g = gRes.status === 'fulfilled' ? gRes.value : null;
+        const recs = recommendCrops(w, s, g);
+        setCropRecs(recs);
+      } else {
+        setCropRecs([]);
+      }
 
       await new Promise(r => setTimeout(r, 600));
       setPhase('recommend');
@@ -1526,8 +1547,13 @@ export default function FarmAnalysis() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
                 <div style={{ textAlign: 'center' }}><ScoreRing score={score.overall} size={90} /><div style={{ fontSize: '0.75rem', color: '#666', marginTop: 4 }}>Overall</div></div>
                 <div className="farm-score-grid" style={{ flex: 1 }}>
-                  {[{ label: 'Yield', value: score.yield_score, color: '#1565c0' }, { label: 'Water', value: score.water_score, color: '#00695c' }, { label: 'Nutrient', value: score.nutrient_score, color: '#ef6c00' }, { label: 'Risk', value: score.risk_score, color: '#6a1b9a' }].map(s => (
-                    <div key={s.label} style={{ textAlign: 'center' }}><div style={{ fontSize: '1.5rem', fontWeight: 700, color: s.color }}>{s.value}</div><div style={{ fontSize: '0.75rem', color: '#666' }}>{s.label}</div></div>
+                  {[
+                    { label: 'Yield', value: score.yield_score, color: '#1565c0', tip: 'Expected crop output based on WOFOST simulation' },
+                    { label: 'Water', value: score.water_score, color: '#00695c', tip: 'Water availability and irrigation efficiency from AquaCrop' },
+                    { label: 'Nutrient', value: score.nutrient_score, color: '#ef6c00', tip: 'Soil nutrient status and fertilizer response from DSSAT' },
+                    { label: 'Risk', value: score.risk_score, color: '#6a1b9a', tip: 'Combined risk from drought, ozone, groundwater depletion' },
+                  ].map(s => (
+                    <div key={s.label} style={{ textAlign: 'center' }}><div style={{ fontSize: '1.5rem', fontWeight: 700, color: s.color }}>{s.value}</div><div style={{ fontSize: '0.75rem', color: '#666' }}>{s.label}{(s as Record<string,unknown>).tip && <HelpTip text={String((s as Record<string,unknown>).tip)} />}</div></div>
                   ))}
                 </div>
               </div>
