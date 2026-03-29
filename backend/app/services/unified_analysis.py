@@ -55,6 +55,94 @@ ZONE_COLORS = [
     "#00bcd4", "#8bc34a", "#ffc107", "#3f51b5", "#795548",
 ]
 
+# Crop-specific pest/disease calendars
+CROP_PEST_RISKS = {
+    "rice": [
+        {"pest": "Stem Borer", "months": [7, 8, 9], "temp_range": (25, 35), "humidity_min": 70,
+         "mitigation": "Install pheromone traps, apply Trichogramma parasitoids"},
+        {"pest": "Blast", "months": [7, 8], "temp_range": (22, 28), "humidity_min": 85,
+         "mitigation": "Use resistant varieties (e.g. Tetep), avoid excess nitrogen"},
+        {"pest": "Brown Plant Hopper", "months": [8, 9, 10], "temp_range": (25, 30), "humidity_min": 75,
+         "mitigation": "Avoid broad-spectrum insecticides, use light traps"},
+    ],
+    "wheat": [
+        {"pest": "Rust", "months": [1, 2, 3], "temp_range": (15, 25), "humidity_min": 80,
+         "mitigation": "Apply propiconazole fungicide at first sign, use resistant varieties"},
+        {"pest": "Aphids", "months": [12, 1, 2], "temp_range": (10, 20), "humidity_min": 60,
+         "mitigation": "Release ladybird beetles, spray neem oil at threshold"},
+        {"pest": "Karnal Bunt", "months": [2, 3], "temp_range": (18, 24), "humidity_min": 85,
+         "mitigation": "Treat seeds with carboxin, avoid late sowing"},
+    ],
+    "maize": [
+        {"pest": "Fall Armyworm", "months": [7, 8, 9], "temp_range": (20, 35), "humidity_min": 60,
+         "mitigation": "Early detection scouting, apply Bt-based biopesticide"},
+        {"pest": "Stem Borer", "months": [7, 8], "temp_range": (25, 35), "humidity_min": 70,
+         "mitigation": "Release Trichogramma egg parasitoids at 5 cards/acre"},
+    ],
+    "cotton": [
+        {"pest": "Bollworm", "months": [8, 9, 10], "temp_range": (25, 35), "humidity_min": 60,
+         "mitigation": "Use Bt cotton varieties, install pheromone traps"},
+        {"pest": "Whitefly", "months": [7, 8, 9], "temp_range": (28, 38), "humidity_min": 50,
+         "mitigation": "Apply neem-based sprays, avoid excessive nitrogen"},
+        {"pest": "Pink Bollworm", "months": [9, 10, 11], "temp_range": (22, 32), "humidity_min": 55,
+         "mitigation": "Destroy crop residues, use mating disruption pheromones"},
+    ],
+    "sorghum": [
+        {"pest": "Shoot Fly", "months": [7, 8], "temp_range": (25, 35), "humidity_min": 65,
+         "mitigation": "Early sowing, use fish meal traps, seed treatment with imidacloprid"},
+        {"pest": "Stem Borer", "months": [8, 9], "temp_range": (25, 35), "humidity_min": 70,
+         "mitigation": "Release Cotesia flavipes parasitoid, remove dead hearts"},
+    ],
+    "millet": [
+        {"pest": "Shoot Fly", "months": [7, 8], "temp_range": (25, 35), "humidity_min": 60,
+         "mitigation": "Sow early with onset of monsoon, use tolerant varieties"},
+        {"pest": "Head Midge", "months": [8, 9], "temp_range": (25, 30), "humidity_min": 70,
+         "mitigation": "Synchronize sowing in community, spray at earhead emergence"},
+    ],
+    "soybean": [
+        {"pest": "Girdle Beetle", "months": [8, 9], "temp_range": (25, 32), "humidity_min": 70,
+         "mitigation": "Deep summer ploughing, spray triazophos at pod formation"},
+        {"pest": "Tobacco Caterpillar", "months": [8, 9, 10], "temp_range": (22, 35), "humidity_min": 60,
+         "mitigation": "Use NPV (nuclear polyhedrosis virus), install pheromone traps"},
+    ],
+    "potato": [
+        {"pest": "Late Blight", "months": [12, 1, 2], "temp_range": (10, 20), "humidity_min": 85,
+         "mitigation": "Apply mancozeb preventively, use certified disease-free seed tubers"},
+        {"pest": "Aphids", "months": [11, 12, 1], "temp_range": (10, 25), "humidity_min": 60,
+         "mitigation": "Dehaulm 15 days before harvest, spray dimethoate at threshold"},
+    ],
+    "chickpea": [
+        {"pest": "Pod Borer (Helicoverpa)", "months": [1, 2, 3], "temp_range": (20, 30), "humidity_min": 50,
+         "mitigation": "Install bird perches, apply HaNPV + neem, hand-pick larvae"},
+        {"pest": "Wilt (Fusarium)", "months": [12, 1, 2], "temp_range": (20, 28), "humidity_min": 70,
+         "mitigation": "Use wilt-resistant varieties (JG 315), treat seed with Trichoderma"},
+    ],
+    "groundnut": [
+        {"pest": "Leaf Miner", "months": [7, 8, 9], "temp_range": (25, 35), "humidity_min": 60,
+         "mitigation": "Spray profenofos at economic threshold, conserve parasitoids"},
+        {"pest": "Tikka Disease", "months": [8, 9, 10], "temp_range": (25, 30), "humidity_min": 80,
+         "mitigation": "Apply carbendazim + mancozeb at 35 and 50 days after sowing"},
+    ],
+    "sugarcane": [
+        {"pest": "Early Shoot Borer", "months": [3, 4, 5], "temp_range": (25, 35), "humidity_min": 60,
+         "mitigation": "Release Trichogramma chilonis, remove dead hearts regularly"},
+        {"pest": "Red Rot", "months": [7, 8, 9], "temp_range": (25, 32), "humidity_min": 85,
+         "mitigation": "Use resistant varieties, treat setts with carbendazim"},
+    ],
+    "mungbean": [
+        {"pest": "Yellow Mosaic Virus", "months": [7, 8, 9], "temp_range": (25, 35), "humidity_min": 65,
+         "mitigation": "Use resistant varieties, control whitefly vector with neem spray"},
+        {"pest": "Pod Borer", "months": [8, 9], "temp_range": (25, 32), "humidity_min": 60,
+         "mitigation": "Spray Bt or neem at 50% flowering stage"},
+    ],
+    "pigeonpea": [
+        {"pest": "Pod Borer (Helicoverpa)", "months": [11, 12, 1], "temp_range": (20, 30), "humidity_min": 55,
+         "mitigation": "Install bird perches, spray HaNPV at 50% flowering"},
+        {"pest": "Pod Fly", "months": [11, 12], "temp_range": (20, 28), "humidity_min": 60,
+         "mitigation": "Early maturing varieties, spray at 50% pod formation"},
+    ],
+}
+
 
 # -- Helpers -----------------------------------------------------------------
 
@@ -106,6 +194,178 @@ def _build_weather_summary(weather_data: list[DailyWeather]) -> dict:
         "avg_temp_min": round(sum(temps_min) / n, 1),
         "total_precip_mm": round(sum(precips), 1),
         "avg_solar_rad_mj": round(sum(rads) / n, 1),
+    }
+
+
+def _assess_pest_risk(
+    crop: str,
+    weather_data: list[DailyWeather],
+    sowing_date: date,
+    harvest_date: date,
+    dssat_result: dict | None,
+    aquacrop_result: dict | None,
+) -> dict:
+    """Assess pest/disease risk based on weather conditions + crop stress indicators."""
+    pest_entries = CROP_PEST_RISKS.get(crop, [])
+    if not pest_entries:
+        return {
+            "overall_risk": "low",
+            "pests": [],
+            "stress_vulnerability": {"water_stress": 0.0, "nutrient_stress": 0.0, "note": "No pest data for this crop"},
+        }
+
+    # Filter weather to the crop cycle
+    cycle_weather = []
+    for w in weather_data:
+        if not w.date:
+            continue
+        try:
+            d = date.fromisoformat(w.date)
+            if sowing_date <= d <= harvest_date:
+                cycle_weather.append((d, w))
+        except (ValueError, TypeError):
+            pass
+
+    # Build monthly weather stats for pest matching
+    monthly_stats: dict[int, dict] = {}
+    for d, w in cycle_weather:
+        m = d.month
+        if m not in monthly_stats:
+            monthly_stats[m] = {"temps": [], "humidities": [], "precips": [], "days": 0}
+        stats = monthly_stats[m]
+        stats["days"] += 1
+        avg_temp = ((w.temperature_max or 30) + (w.temperature_min or 20)) / 2
+        stats["temps"].append(avg_temp)
+        # Estimate humidity from temp range and precipitation
+        humidity_est = min(95, 50 + (w.precipitation or 0) * 2 + max(0, 30 - ((w.temperature_max or 30) - (w.temperature_min or 20))) * 1.5)
+        stats["humidities"].append(humidity_est)
+        stats["precips"].append(w.precipitation or 0)
+
+    # Check general weather-based disease conditions
+    # Count consecutive days favorable for fungal disease (humidity>80, temp 20-30)
+    fungal_consecutive = 0
+    max_fungal_consecutive = 0
+    for _, w in cycle_weather:
+        avg_temp = ((w.temperature_max or 30) + (w.temperature_min or 20)) / 2
+        humidity_est = min(95, 50 + (w.precipitation or 0) * 2)
+        if humidity_est > 80 and 20 <= avg_temp <= 30:
+            fungal_consecutive += 1
+            max_fungal_consecutive = max(max_fungal_consecutive, fungal_consecutive)
+        else:
+            fungal_consecutive = 0
+    general_fungal_risk = max_fungal_consecutive >= 3
+
+    # Evaluate each pest entry
+    assessed_pests = []
+    for entry in pest_entries:
+        # Check if pest's active months overlap with crop cycle months
+        active_months = set(entry["months"])
+        cycle_months = set(monthly_stats.keys())
+        overlap_months = active_months & cycle_months
+
+        if not overlap_months:
+            continue
+
+        # Check weather conditions in overlapping months
+        risk_score = 0
+        reasons = []
+        t_lo, t_hi = entry["temp_range"]
+        h_min = entry["humidity_min"]
+
+        for m in overlap_months:
+            stats = monthly_stats[m]
+            if not stats["temps"]:
+                continue
+            avg_temp = sum(stats["temps"]) / len(stats["temps"])
+            avg_hum = sum(stats["humidities"]) / len(stats["humidities"])
+
+            if t_lo <= avg_temp <= t_hi:
+                risk_score += 1
+                reasons.append(f"Temp {avg_temp:.0f}°C in favorable range ({t_lo}-{t_hi}°C)")
+            if avg_hum >= h_min:
+                risk_score += 1
+                reasons.append(f"Humidity ~{avg_hum:.0f}% exceeds {h_min}% threshold")
+
+        if risk_score == 0:
+            continue
+
+        # Determine risk level
+        if risk_score >= 3:
+            risk = "high"
+        elif risk_score >= 2:
+            risk = "moderate"
+        else:
+            risk = "low"
+
+        # Boost risk if general fungal conditions met and pest is fungal type
+        fungal_pests = {"Blast", "Late Blight", "Rust", "Karnal Bunt", "Red Rot", "Tikka Disease", "Wilt (Fusarium)"}
+        if entry["pest"] in fungal_pests and general_fungal_risk and risk != "high":
+            risk = "high" if risk == "moderate" else "moderate"
+            reasons.append("3+ consecutive days of warm humid conditions favor fungal growth")
+
+        # Format peak period
+        month_names = {1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
+                       7: "Jul", 8: "Aug", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec"}
+        sorted_months = sorted(overlap_months)
+        peak = f"{month_names[sorted_months[0]]}-{month_names[sorted_months[-1]]}" if len(sorted_months) > 1 else month_names[sorted_months[0]]
+
+        assessed_pests.append({
+            "name": entry["pest"],
+            "risk": risk,
+            "peak_period": peak,
+            "reason": "; ".join(reasons[:2]),
+            "mitigation": entry["mitigation"],
+        })
+
+    # Stress vulnerability from model outputs
+    water_stress = 0.0
+    nutrient_stress = 0.0
+
+    if aquacrop_result:
+        dr = aquacrop_result.get("water_advisory", {}).get("drought_risk", "low")
+        water_stress = {"low": 0.1, "moderate": 0.3, "high": 0.6, "severe": 0.9}.get(dr, 0.2)
+
+    if dssat_result:
+        n_stress = dssat_result.get("nutrient_uptake", {}).get("n_stress_total")
+        if n_stress is not None:
+            nutrient_stress = round(float(n_stress), 2)
+
+    # Stress amplifies pest risk
+    stress_note = ""
+    if water_stress > 0.4:
+        stress_note = "High water stress weakens crop defenses — pest/disease impact likely amplified"
+        for p in assessed_pests:
+            if p["risk"] == "moderate":
+                p["risk"] = "high"
+    elif nutrient_stress > 0.4:
+        stress_note = "High nutrient stress reduces crop immunity — disease susceptibility increased"
+        for p in assessed_pests:
+            if p["risk"] == "moderate":
+                p["risk"] = "high"
+    elif water_stress > 0.2 or nutrient_stress > 0.2:
+        stress_note = "Moderate crop stress may increase vulnerability to pests"
+
+    # Overall risk
+    risk_levels = [p["risk"] for p in assessed_pests]
+    if any(r == "high" for r in risk_levels):
+        overall = "high" if sum(1 for r in risk_levels if r == "high") >= 2 else "moderate"
+    elif any(r == "moderate" for r in risk_levels):
+        overall = "moderate"
+    else:
+        overall = "low"
+
+    # Severe if many high-risk pests AND crop stress
+    if sum(1 for r in risk_levels if r == "high") >= 2 and (water_stress > 0.4 or nutrient_stress > 0.4):
+        overall = "severe"
+
+    return {
+        "overall_risk": overall,
+        "pests": assessed_pests,
+        "stress_vulnerability": {
+            "water_stress": round(water_stress, 2),
+            "nutrient_stress": round(nutrient_stress, 2),
+            "note": stress_note or "Crop stress within acceptable limits",
+        },
     }
 
 
@@ -788,6 +1048,11 @@ async def _analyze_single_crop(
         weather_data, crop, sowing_date, harvest_date, zone_type, soil_clay_pct,
     )
 
+    # Pest/disease risk assessment
+    plan["pest_risk"] = _assess_pest_risk(
+        crop, weather_data, sowing_date, harvest_date, dssat_result, aquacrop_result,
+    )
+
     # Feasibility check
     plan["feasibility"] = _check_feasibility(
         crop, wofost_result, aquacrop_result, plan["hazards"], gw_result,
@@ -875,6 +1140,34 @@ async def analyze_farm(
     # -- Phase 2: Land Analysis --
     land_analysis = _compute_land_analysis(elev_data, landcover_result, field_area_ha)
 
+    # -- Phase 2b: LULC Feasibility Check --
+    lc = land_analysis["landcover"]
+    cropland_pct = lc.get("cropland_pct", 70)
+    built_pct = lc.get("built_pct", 8)
+    water_pct = lc.get("water_pct", 3)
+
+    if cropland_pct < 5 and built_pct > 50:
+        return {
+            "error": "location_not_farmable",
+            "message": f"This location is {built_pct:.0f}% built-up area — farming is not feasible here. Try a rural location.",
+            "land_analysis": land_analysis,
+            "suggestion": "Move to coordinates outside the urban area for farmland analysis.",
+        }
+    if water_pct > 50:
+        return {
+            "error": "location_water_body",
+            "message": "This location is predominantly a water body.",
+            "land_analysis": land_analysis,
+        }
+
+    # Soft warning: low cropland but not strictly unfarmable
+    lulc_warning = None
+    if cropland_pct < 20:
+        lulc_warning = (
+            f"Low cropland detected ({cropland_pct:.0f}%) — results may be less reliable. "
+            f"ESA WorldCover resolution can undercount cropland near urban edges."
+        )
+
     # -- Phase 3: Per-Crop Analysis (ALL CROPS IN PARALLEL) --
     # 3a: Zone assignment (fast, sync)
     zones = _assign_crop_zones(crops, elev_data, landcover_result, weather_data, gw_result, field_area_ha)
@@ -943,7 +1236,7 @@ async def analyze_farm(
         plan.pop("_sowing_date", None)
         plan.pop("_harvest_date", None)
 
-    return {
+    result = {
         "farm": {
             "latitude": lat,
             "longitude": lon,
@@ -964,3 +1257,8 @@ async def analyze_farm(
         "recommendations": recommendations,
         "data_sources": data_sources,
     }
+
+    if lulc_warning:
+        result["lulc_warning"] = lulc_warning
+
+    return result
