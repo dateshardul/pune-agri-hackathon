@@ -808,8 +808,8 @@ export default function FarmAnalysis() {
   }));
   const timeline = result?.planting_timeline ?? [];
   // unified_score may be at top level (mock) or inside first crop_plan (backend)
-  const score = (result as Record<string, unknown>)?.unified_score as Record<string, number> | undefined
-    ?? cropPlans[0]?.unified_score as Record<string, number> | undefined;
+  const score = (result as unknown as Record<string, unknown>)?.unified_score as Record<string, number> | undefined
+    ?? (cropPlans[0] as unknown as Record<string, unknown>)?.unified_score as Record<string, number> | undefined;
   const allInfeasible = cropPlans.length > 0 && cropPlans.every(p => p.feasibility && !p.feasibility.viable);
 
   return (
