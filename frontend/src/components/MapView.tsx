@@ -243,7 +243,7 @@ function buildAnnotations(
 
 // ── Component ────────────────────────────────────────────────────────
 
-export default function MapView({ lat, lon, simulationResult, cropZones, highlightedCrop, onCropZoneClick }: Props) {
+export default function MapView({ lat, lon, simulationResult, cropZones, highlightedCrop, onCropZoneClick: _onCropZoneClick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<Engine | null>(null);
   const terrainRef = useRef<TerrainMesh | null>(null);
