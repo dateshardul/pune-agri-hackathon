@@ -872,7 +872,13 @@ export default function FarmAnalysis() {
       {/* ══════════════ STEP 2: ENVIRONMENT ANALYSIS + 3D TERRAIN ══════════════ */}
       {phase === 'environment' && (
         <section className="accent-green">
-          <h2>Analyzing your land...</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+            <h2 style={{ margin: 0 }}>Analyzing your land...</h2>
+            <button onClick={resetToInput} style={{
+              background: '#f5f5f5', color: '#555', border: '1px solid #ddd', borderRadius: 6,
+              padding: '4px 12px', fontSize: '0.8rem', cursor: 'pointer',
+            }}>&larr; Back</button>
+          </div>
           <p>{lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E &middot; {fieldArea} hectares</p>
 
           <div style={{ marginBottom: '1rem', borderRadius: 8, overflow: 'hidden' }}>
@@ -1037,7 +1043,13 @@ export default function FarmAnalysis() {
       {/* ══════════════ STEP 4: SIMULATION LOADING ══════════════ */}
       {phase === 'simulate' && (
         <section className="accent-green">
-          <h2>Building your farming plan...</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+            <h2 style={{ margin: 0 }}>Building your farming plan...</h2>
+            <button onClick={() => setPhase('recommend')} style={{
+              background: '#f5f5f5', color: '#555', border: '1px solid #ddd', borderRadius: 6,
+              padding: '4px 12px', fontSize: '0.8rem', cursor: 'pointer',
+            }}>&larr; Change Crops</button>
+          </div>
           <p>{selectedCrops.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')} at {lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E</p>
 
           <div style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: 10, padding: '1.25rem', margin: '1rem 0' }}>
@@ -1062,10 +1074,16 @@ export default function FarmAnalysis() {
       {phase === 'results' && result && (
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-            <button onClick={resetToInput} style={{
-              background: '#f5f5f5', color: '#555', border: '1px solid #ddd', borderRadius: 6,
-              padding: '6px 14px', fontSize: '0.82rem', cursor: 'pointer',
-            }}>&larr; New Analysis</button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button onClick={resetToInput} style={{
+                background: '#f5f5f5', color: '#555', border: '1px solid #ddd', borderRadius: 6,
+                padding: '6px 14px', fontSize: '0.82rem', cursor: 'pointer',
+              }}>&larr; New Analysis</button>
+              <button onClick={() => setPhase('recommend')} style={{
+                background: '#e8f5e9', color: '#2e7d32', border: '1px solid #a5d6a7', borderRadius: 6,
+                padding: '6px 14px', fontSize: '0.82rem', cursor: 'pointer',
+              }}>&larr; Change Crops</button>
+            </div>
             <div style={{ fontSize: '0.85rem', color: '#666' }}>
               {selectedCrops.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')} &middot; {lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E &middot; {fieldArea} ha
             </div>

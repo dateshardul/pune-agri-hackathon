@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { getCrops } from '../services/api';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface Props {
   lat: number;
@@ -12,30 +12,32 @@ interface Message {
 }
 
 export default function AdvisoryChat({ lat, lon }: Props) {
+  const navigate = useNavigate();
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Welcome to KrishiTwin AI Advisory. I have access to your real-time farm data — weather, soil, groundwater, and ozone conditions. Ask me about crop selection, irrigation, pest management, or climate adaptation.',
+      content:
+        'Welcome to KrishiDisha AI Advisory! I have access to real-time farm data — weather, soil, groundwater, and ozone conditions.\n\nJust tell me which crop you\'re interested in (e.g. "I want to grow rice" or "Compare wheat and maize") and I\'ll run simulations and give you advice.',
     },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [contextSummary, setContextSummary] = useState<string | null>(null);
-  const [crops, setCrops] = useState<Record<string, string>>({});
-  const [selectedCrop, setSelectedCrop] = useState('wheat');
 
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
-    getCrops().then((c) => setCrops(c.crops)).catch(() => {});
-  }, []);
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading]);
 
   // Reset chat when location changes
   useEffect(() => {
     setMessages([{
       role: 'assistant',
-      content: 'Welcome to KrishiTwin AI Advisory. I have access to your real-time farm data — weather, soil, groundwater, and ozone conditions. Ask me about crop selection, irrigation, pest management, or climate adaptation.',
+      content:
+        'Welcome to KrishiDisha AI Advisory! I have access to real-time farm data — weather, soil, groundwater, and ozone conditions.\n\nJust tell me which crop you\'re interested in (e.g. "I want to grow rice" or "Compare wheat and maize") and I\'ll run simulations and give you advice.',
     }]);
     setContextSummary(null);
-    // Reset backend conversation history
     fetch('/api/advisory/reset', { method: 'POST' }).catch(() => {});
   }, [lat, lon]);
 
@@ -51,7 +53,7 @@ export default function AdvisoryChat({ lat, lon }: Props) {
       const res = await fetch('/api/advisory/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input.trim(), latitude: lat, longitude: lon, crop: selectedCrop }),
+        body: JSON.stringify({ message: input.trim(), latitude: lat, longitude: lon }),
       });
       const data = await res.json();
 
@@ -67,7 +69,7 @@ export default function AdvisoryChat({ lat, lon }: Props) {
     } catch {
       setMessages((prev) => [...prev, {
         role: 'assistant',
-        content: 'Advisory service is not yet connected. Coming soon — Claude AI-powered agricultural advisory with context from your weather data, soil profile, crop simulations, and ozone analysis.',
+        content: 'Advisory service is not yet connected. Coming soon — AI-powered agricultural advisory with context from your weather data, soil profile, crop simulations, and ozone analysis.',
       }]);
     } finally {
       setLoading(false);
@@ -76,7 +78,13 @@ export default function AdvisoryChat({ lat, lon }: Props) {
 
   return (
     <section id="advisory" className="accent-slate">
-      <h2>AI Farm Advisory</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+        <h2 style={{ margin: 0 }}>AI Farm Advisory</h2>
+        <button onClick={() => navigate('/analysis')} style={{
+          background: '#e8f5e9', color: '#2e7d32', border: '1px solid #a5d6a7', borderRadius: 6,
+          padding: '6px 14px', fontSize: '0.82rem', cursor: 'pointer',
+        }}>&larr; Farm Analysis</button>
+      </div>
 
       {/* Context indicator */}
       <div style={{
@@ -89,7 +97,7 @@ export default function AdvisoryChat({ lat, lon }: Props) {
           <strong>AI has context:</strong>{' '}
           {contextSummary
             ? contextSummary
-            : `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E, ${selectedCrop} — weather, soil, models`
+            : `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E — weather, soil, groundwater, ozone data. Tell me which crop to analyze.`
           }
         </span>
       </div>
@@ -108,7 +116,7 @@ export default function AdvisoryChat({ lat, lon }: Props) {
               padding: '0.5rem 0.75rem', borderRadius: '12px',
               background: m.role === 'user' ? '#1976d2' : '#e8e8e8',
               color: m.role === 'user' ? '#fff' : '#333',
-              textAlign: 'left',
+              textAlign: 'left', whiteSpace: 'pre-wrap',
             }}>
               {m.content}
             </div>
@@ -117,26 +125,15 @@ export default function AdvisoryChat({ lat, lon }: Props) {
         {loading && (
           <div style={{ color: '#999', fontStyle: 'italic' }}>Thinking...</div>
         )}
+        <div ref={chatEndRef} />
       </div>
 
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-        <select
-          value={selectedCrop}
-          onChange={(e) => setSelectedCrop(e.target.value)}
-          style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid #ccc', fontSize: '0.85rem' }}
-        >
-          {Object.keys(crops).length > 0
-            ? Object.keys(crops).map((c) => (
-                <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
-              ))
-            : <option value="wheat">Wheat</option>
-          }
-        </select>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-          placeholder="Ask about crops, weather, soil, irrigation..."
+          placeholder="e.g. &quot;I want to grow rice on 2 hectares&quot; or &quot;Best crop for dry soil?&quot;"
           style={{
             flex: 1, padding: '0.5rem 0.75rem', borderRadius: '8px',
             border: '1px solid #ccc', fontSize: '0.95rem',
