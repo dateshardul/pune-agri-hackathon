@@ -366,12 +366,14 @@ function DetailedTimeline({ activities }: { activities: CropActivity[] }) {
   const [showAll, setShowAll] = useState(false);
   const displayed = showAll ? activities : activities.filter(a => a.priority === 'critical' || a.category === 'sowing' || a.category === 'harvest');
 
-  // Group into rows of 3 for snake layout
-  const COLS = 3;
+  // Group into rows of 4 for snake layout
+  const COLS = 4;
   const rows: CropActivity[][] = [];
   for (let i = 0; i < displayed.length; i += COLS) {
     rows.push(displayed.slice(i, i + COLS));
   }
+
+  let stepNum = 0;
 
   return (
     <div>
@@ -385,84 +387,94 @@ function DetailedTimeline({ activities }: { activities: CropActivity[] }) {
         </button>
       </div>
 
-      {/* Snake/zigzag timeline */}
-      <div style={{ position: 'relative' }}>
-        {rows.map((row, rowIdx) => {
-          const isReversed = rowIdx % 2 === 1;
-          const items = isReversed ? [...row].reverse() : row;
+      {rows.map((row, rowIdx) => {
+        // Snake: even rows L→R, odd rows R→L
+        const isReversed = rowIdx % 2 === 1;
+        const orderedRow = isReversed ? [...row].reverse() : row;
 
-          return (
-            <div key={rowIdx}>
-              {/* Horizontal row of cards */}
-              <div style={{
-                display: 'grid', gridTemplateColumns: `repeat(${COLS}, 1fr)`, gap: '0.5rem',
-                direction: isReversed ? 'rtl' : 'ltr',
-              }}>
-                {items.map((a, colIdx) => {
-                  const cat = categoryColors[a.category] ?? categoryColors.monitoring;
-                  const globalIdx = rowIdx * COLS + (isReversed ? row.length - 1 - colIdx : colIdx);
-                  return (
-                    <div key={globalIdx} style={{
-                      direction: 'ltr',
-                      background: '#fff', border: `2px solid ${a.priority === 'critical' ? cat.color : '#e0e0e0'}`,
-                      borderRadius: 10, padding: '0.6rem 0.7rem',
-                      position: 'relative', minHeight: 80,
+        return (
+          <div key={rowIdx}>
+            {/* Row of cards */}
+            <div style={{ display: 'flex', gap: '0.5rem', flexDirection: isReversed ? 'row-reverse' : 'row' }}>
+              {row.map((a, colIdx) => {
+                stepNum++;
+                const num = stepNum;
+                const cat = categoryColors[a.category] ?? categoryColors.monitoring;
+                const isLast = colIdx === row.length - 1;
+
+                return (
+                  <div key={num} style={{ flex: '1 1 0', display: 'flex', alignItems: 'stretch', gap: 0 }}>
+                    {/* Card */}
+                    <div style={{
+                      flex: 1, background: '#fff',
+                      border: `2px solid ${a.priority === 'critical' ? cat.color : '#e0e0e0'}`,
+                      borderRadius: 10, padding: '0.55rem 0.65rem',
+                      position: 'relative',
                       boxShadow: a.priority === 'critical' ? `0 2px 8px ${cat.color}22` : 'none',
                     }}>
-                      {/* Step number */}
+                      {/* Step badge */}
                       <div style={{
-                        position: 'absolute', top: -10, left: isReversed ? 'auto' : 12, right: isReversed ? 12 : 'auto',
-                        width: 22, height: 22, borderRadius: '50%',
-                        background: a.priority === 'critical' ? cat.color : '#bbb',
-                        color: '#fff', fontSize: '0.65rem', fontWeight: 700,
+                        position: 'absolute', top: -9, left: 10,
+                        width: 20, height: 20, borderRadius: '50%',
+                        background: a.priority === 'critical' ? cat.color : '#9e9e9e',
+                        color: '#fff', fontSize: '0.6rem', fontWeight: 700,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         border: '2px solid #fff',
-                      }}>
-                        {globalIdx + 1}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap', marginTop: 4 }}>
-                        <span style={{
-                          padding: '1px 6px', borderRadius: 4, fontSize: '0.65rem',
-                          background: cat.bg, color: cat.color, fontWeight: 600,
-                        }}>
-                          {cat.icon} {a.category.replace(/_/g, ' ')}
-                        </span>
-                        <span style={{ fontSize: '0.65rem', color: '#999' }}>Day {a.day}</span>
-                      </div>
-                      <div style={{ fontWeight: 600, fontSize: '0.82rem', marginTop: 3, lineHeight: 1.3 }}>{a.activity}</div>
-                      {a.details && <div style={{ fontSize: '0.72rem', color: '#666', marginTop: 2, lineHeight: 1.3 }}>{a.details}</div>}
-                      <div style={{ fontSize: '0.65rem', color: '#aaa', marginTop: 3 }}>{a.date}</div>
-                    </div>
-                  );
-                })}
-                {/* Fill empty cells in last row */}
-                {items.length < COLS && Array.from({ length: COLS - items.length }).map((_, i) => (
-                  <div key={`empty-${i}`} />
-                ))}
-              </div>
+                      }}>{num}</div>
 
-              {/* Connector: arrow turning down to next row */}
-              {rowIdx < rows.length - 1 && (
-                <div style={{
-                  display: 'flex', justifyContent: isReversed ? 'flex-start' : 'flex-end',
-                  padding: '0 20px', margin: '4px 0',
-                }}>
-                  <div style={{
-                    width: 2, height: 24, background: '#ccc', position: 'relative',
-                  }}>
-                    <div style={{
-                      position: 'absolute', bottom: -4, left: -4,
-                      width: 0, height: 0,
-                      borderLeft: '5px solid transparent', borderRight: '5px solid transparent',
-                      borderTop: '6px solid #ccc',
-                    }} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexWrap: 'wrap', marginTop: 2 }}>
+                        <span style={{
+                          padding: '1px 5px', borderRadius: 3, fontSize: '0.6rem',
+                          background: cat.bg, color: cat.color, fontWeight: 600, whiteSpace: 'nowrap',
+                        }}>{cat.icon} {a.category.replace(/_/g, ' ')}</span>
+                        <span style={{ fontSize: '0.6rem', color: '#999' }}>Day {a.day}</span>
+                      </div>
+                      <div style={{ fontWeight: 600, fontSize: '0.78rem', marginTop: 3, lineHeight: 1.25 }}>{a.activity}</div>
+                      {a.details && <div style={{ fontSize: '0.68rem', color: '#666', marginTop: 2, lineHeight: 1.25 }}>{a.details}</div>}
+                      <div style={{ fontSize: '0.6rem', color: '#aaa', marginTop: 3 }}>{a.date}</div>
+                    </div>
+
+                    {/* Horizontal arrow between cards in same row */}
+                    {!isLast && (
+                      <div style={{ display: 'flex', alignItems: 'center', width: 16, flexShrink: 0 }}>
+                        <div style={{ width: '100%', height: 2, background: '#ccc', position: 'relative' }}>
+                          <div style={{
+                            position: 'absolute', right: -3, top: -3,
+                            width: 0, height: 0,
+                            borderTop: '4px solid transparent', borderBottom: '4px solid transparent',
+                            borderLeft: '5px solid #ccc',
+                          }} />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+
+            {/* Turn-down connector between rows */}
+            {rowIdx < rows.length - 1 && (
+              <div style={{
+                display: 'flex',
+                justifyContent: isReversed ? 'flex-start' : 'flex-end',
+                padding: '0 24px',
+              }}>
+                <div style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  margin: '2px 0',
+                }}>
+                  <div style={{ width: 2, height: 16, background: '#ccc' }} />
+                  <div style={{
+                    width: 0, height: 0,
+                    borderLeft: '5px solid transparent', borderRight: '5px solid transparent',
+                    borderTop: '6px solid #ccc',
+                  }} />
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
