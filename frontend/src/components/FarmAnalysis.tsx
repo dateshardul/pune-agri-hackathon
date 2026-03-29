@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Component, type ReactNode } from 'react';
 import {
   getCrops, analyzeFarm, getWeather, getSoil, getGroundwater, getOzone, getElevation,
   type FarmAnalysisRequest, type FarmAnalysisResponse,
@@ -8,6 +8,29 @@ import {
 } from '../services/api';
 import MapView from './MapView';
 import AdvisoryChat from './AdvisoryChat';
+
+// Error boundary to catch render crashes and show error instead of blank screen
+class ResultsErrorBoundary extends Component<{ children: ReactNode; onReset: () => void }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error) { console.error('Results render crash:', error); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: '2rem', background: '#ffebee', borderRadius: 10, margin: '1rem 0' }}>
+          <h3 style={{ color: '#c62828', marginTop: 0 }}>Results display error</h3>
+          <p style={{ color: '#555' }}>{this.state.error.message}</p>
+          <pre style={{ fontSize: '0.75rem', color: '#888', overflow: 'auto', maxHeight: 200 }}>{this.state.error.stack}</pre>
+          <button onClick={() => { this.setState({ error: null }); this.props.onReset(); }}
+            style={{ padding: '8px 20px', background: '#c62828', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', marginTop: '0.5rem' }}>
+            Start Over
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ── Location presets ─────────────────────────────────────────────────
 
@@ -1072,7 +1095,7 @@ export default function FarmAnalysis() {
 
       {/* ══════════════ STEP 5: RESULTS ══════════════ */}
       {phase === 'results' && result && (
-        <>
+        <ResultsErrorBoundary onReset={resetToInput}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button onClick={resetToInput} style={{
@@ -1204,7 +1227,7 @@ export default function FarmAnalysis() {
 
           {/* AI Chat */}
           <AdvisoryChat lat={lat} lon={lon} />
-        </>
+        </ResultsErrorBoundary>
       )}
 
       {error && <div style={{ color: '#c62828', background: '#ffebee', padding: '1rem', borderRadius: 8, margin: '1rem 0' }}>{error}</div>}
