@@ -216,17 +216,39 @@ function monthIndex(m: string): number {
   return idx >= 0 ? idx : 0;
 }
 
+// Activity phase colors for timeline segments
+const PHASE_COLORS: Record<string, string> = {
+  land_prep: '#6d4c41', sowing: '#33691e', irrigation: '#0277bd',
+  fertilizer: '#e65100', weeding: '#558b2f', monitoring: '#00695c',
+  pest_management: '#b71c1c', harvest: '#f9a825', post_harvest: '#37474f',
+};
+
 function PlantingTimeline({ events, cropPlans, highlightedCrop, onCropClick }: { events: TimelineEvent[]; cropPlans: CropPlan[]; highlightedCrop?: string | null; onCropClick?: (crop: string) => void }) {
-  // Build bars: each crop gets a sow→harvest span
-  const bars: { crop: string; start: number; end: number; color: string }[] = [];
+  // Build bars: each crop spans from land_prep start to post_harvest end
+  const bars: { crop: string; startMonth: number; endMonth: number; color: string; activities?: CropActivity[] }[] = [];
 
   for (const plan of cropPlans) {
     if (plan.feasibility && !plan.feasibility.viable && plan.feasibility.severity === 'impossible') continue;
+    const activities = plan.detailed_timeline ?? [];
     const sowMonth = plan.sowing?.best_month ?? '';
-    const sowIdx = monthIndex(sowMonth);
-    const harvestEvent = events.find(e => e.crops?.includes(plan.crop) && e.action?.toLowerCase().includes('harvest'));
-    const endIdx = harvestEvent ? monthIndex(harvestEvent.month) : Math.min(11, sowIdx + 4);
-    bars.push({ crop: plan.crop, start: sowIdx, end: endIdx, color: plan.zone?.color ?? '#4caf50' });
+    let startIdx = monthIndex(sowMonth);
+    let endIdx = startIdx;
+
+    if (activities.length > 0) {
+      // Use actual activity dates for accurate span
+      const dates = activities.map(a => a.date).filter(Boolean).sort();
+      if (dates.length > 0) {
+        startIdx = new Date(dates[0]).getMonth();
+        endIdx = new Date(dates[dates.length - 1]).getMonth();
+      }
+    } else {
+      // Fallback: start 1 month before sowing, end from events
+      startIdx = (startIdx + 11) % 12; // -1 month for land prep
+      const harvestEvent = events.find(e => e.crops?.includes(plan.crop) && e.action?.toLowerCase().includes('harvest'));
+      endIdx = harvestEvent ? monthIndex(harvestEvent.month) : Math.min(11, startIdx + 5);
+    }
+
+    bars.push({ crop: plan.crop, startMonth: startIdx, endMonth: endIdx, color: plan.zone?.color ?? '#4caf50', activities });
   }
 
   if (bars.length === 0) return null;
@@ -234,36 +256,97 @@ function PlantingTimeline({ events, cropPlans, highlightedCrop, onCropClick }: {
   return (
     <div style={{ overflowX: 'auto' }}>
       {/* Month headers */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #e0e0e0', marginBottom: 4 }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #e0e0e0', marginBottom: 6 }}>
         {MONTHS.map(m => (
-          <div key={m} style={{ flex: '0 0 calc(100%/12)', fontSize: '0.7rem', color: '#666', textAlign: 'center', padding: '2px 0' }}>{m}</div>
+          <div key={m} style={{ flex: '0 0 calc(100%/12)', fontSize: '0.68rem', color: '#888', textAlign: 'center', padding: '3px 0' }}>{m}</div>
         ))}
       </div>
+
       {/* Bars */}
       {bars.map(bar => {
-        const start = bar.start;
-        const span = bar.end >= bar.start ? bar.end - bar.start + 1 : (12 - bar.start) + bar.end + 1;
-        const isHighlighted = !highlightedCrop || highlightedCrop === bar.crop;
+        const span = bar.endMonth >= bar.startMonth ? bar.endMonth - bar.startMonth + 1 : (12 - bar.startMonth) + bar.endMonth + 1;
+        const isSelected = highlightedCrop === bar.crop;
+        const isDimmed = highlightedCrop && !isSelected;
+
         return (
-          <div key={bar.crop} onClick={() => onCropClick?.(bar.crop)}
-            style={{ display: 'flex', alignItems: 'center', height: 28, position: 'relative', cursor: 'pointer' }}>
-            <div style={{
-              position: 'absolute',
-              left: `${(start / 12) * 100}%`,
-              width: `${(span / 12) * 100}%`,
-              height: isHighlighted ? 22 : 16, borderRadius: 4,
-              background: bar.color, opacity: isHighlighted ? 0.9 : 0.3,
-              transition: 'all 0.2s',
-              border: highlightedCrop === bar.crop ? '2px solid #333' : 'none',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '0.72rem', fontWeight: 600, color: '#fff',
-              textTransform: 'capitalize', whiteSpace: 'nowrap', overflow: 'hidden',
-            }}>
+          <div key={bar.crop} style={{ marginBottom: 6 }}>
+            {/* Crop label */}
+            <div style={{ fontSize: '0.7rem', fontWeight: 600, color: isDimmed ? '#ccc' : '#555', textTransform: 'capitalize', marginBottom: 2, paddingLeft: `${(bar.startMonth / 12) * 100}%` }}>
               {bar.crop}
+            </div>
+
+            <div onClick={() => onCropClick?.(bar.crop)}
+              style={{ display: 'flex', alignItems: 'center', height: isSelected ? 28 : 18, position: 'relative', cursor: 'pointer', transition: 'height 0.2s' }}>
+
+              {/* Main bar — solid color when not selected */}
+              {!isSelected && (
+                <div style={{
+                  position: 'absolute',
+                  left: `${(bar.startMonth / 12) * 100}%`,
+                  width: `${(span / 12) * 100}%`,
+                  height: '100%', borderRadius: 4,
+                  background: bar.color, opacity: isDimmed ? 0.2 : 0.75,
+                  transition: 'all 0.2s',
+                }} />
+              )}
+
+              {/* Activity-colored segments when selected */}
+              {isSelected && bar.activities && bar.activities.length > 0 && (() => {
+                // Group activities by category, find time span of each
+                const catSpans: Record<string, { minDay: number; maxDay: number }> = {};
+                bar.activities.forEach(a => {
+                  if (!catSpans[a.category]) catSpans[a.category] = { minDay: a.day, maxDay: a.day };
+                  catSpans[a.category].minDay = Math.min(catSpans[a.category].minDay, a.day);
+                  catSpans[a.category].maxDay = Math.max(catSpans[a.category].maxDay, a.day);
+                });
+                const totalDays = Math.max(1, ...bar.activities.map(a => a.day)) - Math.min(...bar.activities.map(a => a.day));
+                const baseDay = Math.min(...bar.activities.map(a => a.day));
+                const barLeft = (bar.startMonth / 12) * 100;
+                const barWidth = (span / 12) * 100;
+
+                return Object.entries(catSpans).map(([cat, s]) => {
+                  const segLeft = barLeft + ((s.minDay - baseDay) / totalDays) * barWidth;
+                  const segWidth = Math.max(0.5, ((s.maxDay - s.minDay + 1) / totalDays) * barWidth);
+                  return (
+                    <div key={cat} title={cat.replace(/_/g, ' ')} style={{
+                      position: 'absolute',
+                      left: `${segLeft}%`,
+                      width: `${segWidth}%`,
+                      height: '100%', borderRadius: 2,
+                      background: PHASE_COLORS[cat] ?? bar.color,
+                      opacity: 0.85,
+                    }} />
+                  );
+                });
+              })()}
+
+              {/* Fallback solid bar when selected but no activities */}
+              {isSelected && (!bar.activities || bar.activities.length === 0) && (
+                <div style={{
+                  position: 'absolute',
+                  left: `${(bar.startMonth / 12) * 100}%`,
+                  width: `${(span / 12) * 100}%`,
+                  height: '100%', borderRadius: 4,
+                  background: bar.color, opacity: 0.9,
+                  border: '2px solid #333',
+                }} />
+              )}
             </div>
           </div>
         );
       })}
+
+      {/* Legend when a crop is selected */}
+      {highlightedCrop && (
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: 6, paddingTop: 6, borderTop: '1px solid #eee' }}>
+          {Object.entries(PHASE_COLORS).map(([cat, color]) => (
+            <span key={cat} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: '0.6rem', color: '#666' }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: color, display: 'inline-block' }} />
+              {cat.replace(/_/g, ' ')}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1009,7 +1092,7 @@ export default function FarmAnalysis() {
       // Race the API call against a 30-second timeout
       const res = await Promise.race([
         analyzeFarm(req),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 30000)),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 60000)),
       ]);
       clearTimers();
 

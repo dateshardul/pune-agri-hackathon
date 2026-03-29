@@ -360,7 +360,8 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
           const terrainLayer = eng.layers.add({ name: 'Terrain', visible: true });
           terrain.addTo(terrainLayer.group);
 
-          // ── Per-crop zone layers (one layer per crop for individual toggle) ──
+          // ── Crop Zones (parent layer with per-crop sub-layers) ──
+          eng.layers.add({ name: 'Crop Zones', visible: true });
           if (cropZones && cropZones.length > 0 && elevResult) {
             const { height_data: hData, width: gridW, height: gridH, min_elevation: eMin, max_elevation: eMax } = elevResult;
             const eRange = eMax - eMin;
@@ -371,7 +372,7 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
             cropZones.forEach((cz) => {
               const cropName = cz.crop.charAt(0).toUpperCase() + cz.crop.slice(1);
               // Each crop gets its own toggleable layer
-              const layer = eng.layers.add({ name: `${cropName} Zone`, visible: true, opacity: 0.6 });
+              const layer = eng.layers.add({ name: `  ${cropName}`, visible: true, opacity: 0.6 });
 
               const [zLow, zHigh] = cz.elevation_range ?? [eMin, eMax];
               const zoneColor = new THREE.Color(cz.color || '#4caf50');
@@ -429,7 +430,7 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
             const zoneTypes = ['valley', 'slope', 'hilltop'];
             cropZones.forEach((cz, idx) => {
               const cropName = cz.crop.charAt(0).toUpperCase() + cz.crop.slice(1);
-              const layer = eng.layers.add({ name: `${cropName} Zone`, visible: true, opacity: 0.6 });
+              const layer = eng.layers.add({ name: `  ${cropName}`, visible: true, opacity: 0.6 });
               const zoneGeom = new THREE.PlaneGeometry(12, 12 * (cz.area_fraction || 0.3));
               zoneGeom.rotateX(-Math.PI / 2);
               const zoneMat = new THREE.MeshStandardMaterial({
@@ -558,12 +559,14 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
     if (!engine || !cropZones) return;
     const allLayers = engine.layers.getAll();
     for (const layer of allLayers) {
-      if (layer.name.endsWith(' Zone')) {
+      if (layer.name.startsWith('  ')) {
+        // Indented names = crop zone sub-layers
+        const cropInLayer = layer.name.trim().toLowerCase();
         if (!highlightedCrop) {
           engine.layers.setVisible(layer.name, true);
           engine.layers.setOpacity(layer.name, 0.6);
         } else {
-          const isMatch = layer.name.toLowerCase().startsWith(highlightedCrop.toLowerCase());
+          const isMatch = cropInLayer === highlightedCrop.toLowerCase();
           engine.layers.setVisible(layer.name, true);
           engine.layers.setOpacity(layer.name, isMatch ? 0.8 : 0.15);
         }
