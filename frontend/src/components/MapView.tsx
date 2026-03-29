@@ -876,8 +876,7 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
                 )}
               </div>
             );
-          })()
-          )}
+          })()}
 
           {/* Bottom-left: annotation info card */}
           {selectedAnnotation && (

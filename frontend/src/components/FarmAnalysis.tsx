@@ -1553,7 +1553,7 @@ export default function FarmAnalysis() {
                     { label: 'Nutrient', value: score.nutrient_score, color: '#ef6c00', tip: 'Soil nutrient status and fertilizer response from DSSAT' },
                     { label: 'Risk', value: score.risk_score, color: '#6a1b9a', tip: 'Combined risk from drought, ozone, groundwater depletion' },
                   ].map(s => (
-                    <div key={s.label} style={{ textAlign: 'center' }}><div style={{ fontSize: '1.5rem', fontWeight: 700, color: s.color }}>{s.value}</div><div style={{ fontSize: '0.75rem', color: '#666' }}>{s.label}{(s as Record<string,unknown>).tip && <HelpTip text={String((s as Record<string,unknown>).tip)} />}</div></div>
+                    <div key={s.label} style={{ textAlign: 'center' }}><div style={{ fontSize: '1.5rem', fontWeight: 700, color: s.color }}>{s.value}</div><div style={{ fontSize: '0.75rem', color: '#666' }}>{s.label}{s.tip && <HelpTip text={s.tip} />}</div></div>
                   ))}
                 </div>
               </div>
