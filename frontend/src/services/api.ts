@@ -470,6 +470,24 @@ export interface CropFeasibility {
   alternatives: Array<{ crop: string; reason: string }>;
 }
 
+export interface PestEntry {
+  name: string;
+  risk: string;
+  peak_period: string;
+  reason: string;
+  mitigation: string;
+}
+
+export interface PestRisk {
+  overall_risk: string;
+  pests: PestEntry[];
+  stress_vulnerability: {
+    water_stress: number;
+    nutrient_stress: number;
+    note: string;
+  };
+}
+
 export interface CropPlan {
   crop: string;
   zone: CropZone;
@@ -489,6 +507,7 @@ export interface CropPlan {
     weekly_calendar: HazardWeek[];
     mitigations: string[];
   };
+  pest_risk?: PestRisk;
 }
 
 export interface TimelineEvent {

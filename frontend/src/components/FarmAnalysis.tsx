@@ -5,6 +5,7 @@ import {
   type IrrigationWeek, type FertilizerApplication,
   type WeatherResponse, type SoilResponse, type GroundwaterResult,
   type CropPlan, type CropZone, type HazardWeek, type TimelineEvent, type LandAnalysis,
+  type PestRisk,
 } from '../services/api';
 import MapView from './MapView';
 import AdvisoryChat from './AdvisoryChat';
@@ -303,6 +304,50 @@ function HazardCalendar({ weeks }: { weeks: HazardWeek[] }) {
   );
 }
 
+// ── Pest & Disease Risk ─────────────────────────────────────────────
+
+const pestRiskColors: Record<string, { bg: string; color: string }> = {
+  low: { bg: '#e8f5e9', color: '#2e7d32' },
+  moderate: { bg: '#fff8e1', color: '#f57f17' },
+  high: { bg: '#ffebee', color: '#c62828' },
+};
+
+function PestRiskSection({ pestRisk }: { pestRisk: PestRisk }) {
+  const overall = pestRiskColors[pestRisk.overall_risk?.toLowerCase()] ?? pestRiskColors.moderate;
+  return (
+    <div style={{ marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+        <strong style={{ fontSize: '0.9rem' }}>Pest &amp; Disease Risk</strong>
+        <span style={{
+          padding: '2px 10px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 600,
+          background: overall.bg, color: overall.color, textTransform: 'capitalize',
+        }}>{pestRisk.overall_risk}</span>
+      </div>
+      {pestRisk.pests?.length > 0 && (
+        <table><thead><tr><th>Pest/Disease</th><th>Risk</th><th>Peak Period</th><th>Mitigation</th></tr></thead>
+          <tbody>{pestRisk.pests.map((p, i) => {
+            const rc = pestRiskColors[p.risk?.toLowerCase()] ?? pestRiskColors.moderate;
+            return (
+              <tr key={i}>
+                <td><strong>{p.name}</strong></td>
+                <td><span style={{ padding: '2px 8px', borderRadius: 10, fontSize: '0.75rem', fontWeight: 600, background: rc.bg, color: rc.color, textTransform: 'capitalize' }}>{p.risk}</span></td>
+                <td style={{ fontSize: '0.85rem' }}>{p.peak_period}</td>
+                <td style={{ fontSize: '0.85rem', color: '#555' }}>{p.mitigation}</td>
+              </tr>
+            );
+          })}</tbody></table>
+      )}
+      {pestRisk.stress_vulnerability && (
+        <div style={{ marginTop: 8, fontSize: '0.82rem', color: '#555', background: '#f5f5f5', padding: '0.5rem 0.75rem', borderRadius: 6 }}>
+          <span style={{ fontWeight: 600 }}>Stress vulnerability: </span>
+          Water {pestRisk.stress_vulnerability.water_stress}/10 · Nutrient {pestRisk.stress_vulnerability.nutrient_stress}/10
+          {pestRisk.stress_vulnerability.note && <span> — {pestRisk.stress_vulnerability.note}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Per-Crop Accordion ───────────────────────────────────────────────
 
 function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAlternative: (crop: string) => void }) {
@@ -335,28 +380,28 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
         </span>
         <span style={{
           padding: '2px 10px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 600,
-          background: plan.feasibility.viable ? '#4caf50' : sev.border,
+          background: feasibility.viable ? '#4caf50' : sev.border,
           color: '#fff',
         }}>
-          {plan.feasibility.viable ? 'Viable' : plan.feasibility.severity}
+          {feasibility.viable ? 'Viable' : feasibility.severity}
         </span>
         <span style={{ fontSize: '0.9rem', color: '#666' }}>{expanded ? '\u25B4' : '\u25BE'}</span>
       </button>
 
       {/* Infeasible banner */}
-      {!plan.feasibility.viable && (
+      {!feasibility.viable && (
         <div style={{ padding: '0.75rem 1rem', background: sev.bg, borderTop: `1px solid ${sev.border}` }}>
           <div style={{ fontWeight: 600, color: sev.color, marginBottom: 4 }}>
             {plan.crop.charAt(0).toUpperCase() + plan.crop.slice(1)} is NOT recommended for this field
           </div>
           <ul style={{ margin: '4px 0', paddingLeft: '1.25rem', fontSize: '0.85rem', color: sev.color }}>
-            {plan.feasibility.reasons.map((r, i) => <li key={i}>{r}</li>)}
+            {feasibility.reasons.map((r, i) => <li key={i}>{r}</li>)}
           </ul>
-          {plan.feasibility.alternatives.length > 0 && (
+          {feasibility.alternatives.length > 0 && (
             <div style={{ marginTop: 8 }}>
               <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: 4 }}>Consider instead:</div>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {plan.feasibility.alternatives.map(alt => (
+                {feasibility.alternatives.map(alt => (
                   <button key={alt.crop} onClick={() => onTryAlternative(alt.crop)} style={{
                     padding: '4px 14px', borderRadius: 16, fontSize: '0.8rem', cursor: 'pointer',
                     background: '#e8f5e9', color: '#2e7d32', border: '1px solid #a5d6a7',
@@ -367,7 +412,7 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
               </div>
             </div>
           )}
-          {plan.feasibility.severity !== 'impossible' && (
+          {feasibility.severity !== 'impossible' && (
             <button onClick={() => setExpanded(!expanded)} style={{
               marginTop: 8, padding: '4px 14px', borderRadius: 6, fontSize: '0.78rem',
               background: 'transparent', color: '#999', border: '1px solid #ccc', cursor: 'pointer',
@@ -403,8 +448,8 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
               </div>
               <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginTop: '0.4rem' }}>
                 <div><div style={{ fontSize: '0.7rem', color: '#666' }}>Season</div><div style={{ fontWeight: 600 }}>{plan.sowing.season}</div></div>
-                <div><div style={{ fontSize: '0.7rem', color: '#666' }}>Expected Yield</div><div style={{ fontWeight: 600 }}>{plan.sowing.optimal_period.expected_yield_kg_ha.toLocaleString()} kg/ha</div></div>
-                <div><div style={{ fontSize: '0.7rem', color: '#666' }}>vs Standard</div><div style={{ fontWeight: 600, color: '#2e7d32' }}>{plan.sowing.optimal_period.vs_standard_pct}</div></div>
+                <div><div style={{ fontSize: '0.7rem', color: '#666' }}>Expected Yield</div><div style={{ fontWeight: 600 }}>{(plan.sowing.optimal_period.expected_yield_kg_ha ?? 0).toLocaleString()} kg/ha</div></div>
+                <div><div style={{ fontSize: '0.7rem', color: '#666' }}>vs Standard</div><div style={{ fontWeight: 600, color: '#2e7d32' }}>{plan.sowing.optimal_period.vs_standard_pct ?? 'N/A'}</div></div>
               </div>
             </div>
           )}
@@ -449,7 +494,7 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
                 Crop-Cycle Hazard Calendar ({plan.hazards.overall_risk} overall risk)
               </strong>
               <HazardCalendar weeks={plan.hazards.weekly_calendar} />
-              {plan.hazards.mitigations.length > 0 && (
+              {(plan.hazards.mitigations?.length ?? 0) > 0 && (
                 <div style={{ marginTop: 8 }}>
                   <div style={{ fontSize: '0.78rem', color: '#666', fontWeight: 600, marginBottom: 2 }}>Mitigations:</div>
                   <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.82rem', color: '#555' }}>
@@ -458,6 +503,11 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
                 </div>
               )}
             </div>
+          )}
+
+          {/* Pest & Disease Risk */}
+          {plan.pest_risk && (
+            <PestRiskSection pestRisk={plan.pest_risk} />
           )}
         </div>
       )}
@@ -623,6 +673,7 @@ export default function FarmAnalysis() {
   const [simSteps, setSimSteps] = useState<PipelineStep[]>([]);
   const [simProgress, setSimProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [notFarmableLand, setNotFarmableLand] = useState<LandAnalysis | null>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Preferences for Step 5 re-run
@@ -784,6 +835,16 @@ export default function FarmAnalysis() {
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 30000)),
       ]);
       clearTimers();
+
+      // Check if backend flagged location as not farmable
+      const resAny = res as unknown as Record<string, unknown>;
+      if (resAny.error === 'location_not_farmable') {
+        setError(String(resAny.message ?? 'This location is not suitable for farming.'));
+        setNotFarmableLand(res.land_analysis ?? null);
+        setPhase('results');
+        return;
+      }
+
       steps.forEach(s => { s.status = 'done'; });
       setSimSteps([...steps]);
       setSimProgress(100);
@@ -811,7 +872,7 @@ export default function FarmAnalysis() {
 
   const resetToInput = () => {
     setPhase('input');
-    setResult(null); setError(null);
+    setResult(null); setError(null); setNotFarmableLand(null);
     setWeather(null); setSoil(null); setGroundwater(null); setOzoneData(null);
     setCropRecs([]); setSelectedCrops([]);
   };
@@ -832,7 +893,7 @@ export default function FarmAnalysis() {
   const timeline = result?.planting_timeline ?? [];
   // unified_score may be at top level (mock) or inside first crop_plan (backend)
   const score = (result as unknown as Record<string, unknown>)?.unified_score as Record<string, number> | undefined
-    ?? (cropPlans[0] as unknown as Record<string, unknown>)?.unified_score as Record<string, number> | undefined;
+    ?? (cropPlans.length > 0 ? (cropPlans[0] as unknown as Record<string, unknown>)?.unified_score as Record<string, number> | undefined : undefined);
   const allInfeasible = cropPlans.length > 0 && cropPlans.every(p => p.feasibility && !p.feasibility.viable);
 
   return (
@@ -845,6 +906,13 @@ export default function FarmAnalysis() {
         .farm-card:nth-child(3) { animation-delay: 0.16s; }
         .farm-card:nth-child(4) { animation-delay: 0.24s; }
         .farm-score-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.75rem; }
+        @media print {
+          .section-nav, header, .no-print, #terrain, .accent-blue.farm-card:has(#terrain) { display: none !important; }
+          .print-header { display: block !important; }
+          .farm-card { break-inside: avoid; animation: none !important; }
+          body { font-size: 11pt; }
+          section { box-shadow: none !important; }
+        }
       `}</style>
 
       {/* ══════════════ STEP 1: FARM INPUT ══════════════ */}
@@ -1106,10 +1174,23 @@ export default function FarmAnalysis() {
                 background: '#e8f5e9', color: '#2e7d32', border: '1px solid #a5d6a7', borderRadius: 6,
                 padding: '6px 14px', fontSize: '0.82rem', cursor: 'pointer',
               }}>&larr; Change Crops</button>
+              <button onClick={() => window.print()} className="no-print" style={{
+                background: '#e3f2fd', color: '#1565c0', border: '1px solid #90caf9', borderRadius: 6,
+                padding: '6px 14px', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600,
+              }}>Download Report</button>
             </div>
             <div style={{ fontSize: '0.85rem', color: '#666' }}>
               {selectedCrops.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')} &middot; {lat.toFixed(2)}&deg;N, {lon.toFixed(2)}&deg;E &middot; {fieldArea} ha
             </div>
+          </div>
+
+          {/* Print-only header */}
+          <div style={{ display: 'none' }} className="print-header">
+            <h1 style={{ fontSize: '1.4rem', marginBottom: 4 }}>KrishiDisha Farm Analysis Report</h1>
+            <p style={{ color: '#555', fontSize: '0.9rem', margin: 0 }}>
+              {selectedCrops.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')} &middot; {lat.toFixed(4)}&deg;N, {lon.toFixed(4)}&deg;E &middot; {fieldArea} ha &middot; Generated {new Date().toLocaleDateString()}
+            </p>
+            <hr style={{ margin: '0.75rem 0', border: 'none', borderTop: '1px solid #ccc' }} />
           </div>
 
           {usingMock && (
@@ -1119,7 +1200,7 @@ export default function FarmAnalysis() {
           )}
 
           {/* Adjustment Panel */}
-          <section className="accent-green farm-card" style={{ padding: '0.75rem 1rem' }}>
+          <section className="accent-green farm-card no-print" style={{ padding: '0.75rem 1rem' }}>
             <button onClick={() => setShowAdjust(!showAdjust)} style={{
               background: 'transparent', color: '#333', border: 'none', padding: 0,
               fontSize: '0.9rem', cursor: 'pointer', fontWeight: 600, width: '100%', textAlign: 'left',
@@ -1230,7 +1311,20 @@ export default function FarmAnalysis() {
         </ResultsErrorBoundary>
       )}
 
-      {error && <div style={{ color: '#c62828', background: '#ffebee', padding: '1rem', borderRadius: 8, margin: '1rem 0' }}>{error}</div>}
+      {/* Not farmable location error */}
+      {error && notFarmableLand && (
+        <section className="farm-card" style={{ background: '#ffebee', border: '2px solid #f44336', borderRadius: 10, padding: '1.25rem', margin: '1rem 0' }}>
+          <h2 style={{ color: '#b71c1c', fontSize: '1.1rem', marginTop: 0 }}>Location Not Suitable for Farming</h2>
+          <p style={{ color: '#c62828', fontSize: '0.9rem' }}>{error}</p>
+          <LandAnalysisCards land={notFarmableLand} />
+          <button onClick={resetToInput} style={{
+            marginTop: '1rem', padding: '10px 24px', background: '#c62828', color: '#fff',
+            border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600,
+          }}>&larr; Try a Different Location</button>
+        </section>
+      )}
+
+      {error && !notFarmableLand && <div style={{ color: '#c62828', background: '#ffebee', padding: '1rem', borderRadius: 8, margin: '1rem 0' }}>{error}</div>}
     </div>
   );
 }
