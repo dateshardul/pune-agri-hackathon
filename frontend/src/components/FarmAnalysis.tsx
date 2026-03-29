@@ -216,7 +216,7 @@ function monthIndex(m: string): number {
   return idx >= 0 ? idx : 0;
 }
 
-function PlantingTimeline({ events, cropPlans }: { events: TimelineEvent[]; cropPlans: CropPlan[] }) {
+function PlantingTimeline({ events, cropPlans, highlightedCrop, onCropClick }: { events: TimelineEvent[]; cropPlans: CropPlan[]; highlightedCrop?: string | null; onCropClick?: (crop: string) => void }) {
   // Build bars: each crop gets a sow→harvest span
   const bars: { crop: string; start: number; end: number; color: string }[] = [];
 
@@ -243,14 +243,18 @@ function PlantingTimeline({ events, cropPlans }: { events: TimelineEvent[]; crop
       {bars.map(bar => {
         const start = bar.start;
         const span = bar.end >= bar.start ? bar.end - bar.start + 1 : (12 - bar.start) + bar.end + 1;
+        const isHighlighted = !highlightedCrop || highlightedCrop === bar.crop;
         return (
-          <div key={bar.crop} style={{ display: 'flex', alignItems: 'center', height: 28, position: 'relative' }}>
+          <div key={bar.crop} onClick={() => onCropClick?.(bar.crop)}
+            style={{ display: 'flex', alignItems: 'center', height: 28, position: 'relative', cursor: 'pointer' }}>
             <div style={{
               position: 'absolute',
               left: `${(start / 12) * 100}%`,
               width: `${(span / 12) * 100}%`,
-              height: 20, borderRadius: 4,
-              background: bar.color, opacity: 0.85,
+              height: isHighlighted ? 22 : 16, borderRadius: 4,
+              background: bar.color, opacity: isHighlighted ? 0.9 : 0.3,
+              transition: 'all 0.2s',
+              border: highlightedCrop === bar.crop ? '2px solid #333' : 'none',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: '0.72rem', fontWeight: 600, color: '#fff',
               textTransform: 'capitalize', whiteSpace: 'nowrap', overflow: 'hidden',
@@ -852,6 +856,7 @@ export default function FarmAnalysis() {
   const [showAdjust, setShowAdjust] = useState(false);
   const [adjWater, setAdjWater] = useState(1400);
   const [adjSowing, setAdjSowing] = useState('auto');
+  const [highlightedCrop, setHighlightedCrop] = useState<string | null>(null);
 
   useEffect(() => {
     getCrops().then(c => setCrops(c.crops)).catch(() => {});
@@ -1429,7 +1434,9 @@ export default function FarmAnalysis() {
           {cropPlans.length > 0 && (
             <section className="accent-blue farm-card">
               <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>Planting Timeline</h2>
-              <PlantingTimeline events={timeline} cropPlans={cropPlans} />
+              <PlantingTimeline events={timeline} cropPlans={cropPlans}
+                highlightedCrop={highlightedCrop}
+                onCropClick={(crop) => setHighlightedCrop(prev => prev === crop ? null : crop)} />
             </section>
           )}
 
@@ -1437,7 +1444,9 @@ export default function FarmAnalysis() {
           <section className="accent-blue farm-card" style={{ padding: '0.5rem' }}>
             <div id="terrain">
               <MapView lat={lat} lon={lon} simulationResult={null}
-                cropZones={cropPlans.filter(p => p.feasibility?.viable !== false).map(p => ({ ...(p.zone ?? {}), crop: p.crop }))} />
+                cropZones={cropPlans.filter(p => p.feasibility?.viable !== false).map(p => ({ ...(p.zone ?? {}), crop: p.crop }))}
+                highlightedCrop={highlightedCrop}
+                onCropZoneClick={(crop) => setHighlightedCrop(prev => prev === crop ? null : crop)} />
             </div>
           </section>
 

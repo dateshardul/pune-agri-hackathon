@@ -23,6 +23,8 @@ interface Props {
   lon: number;
   simulationResult?: SimulationResult | null;
   cropZones?: CropZoneWithName[];
+  highlightedCrop?: string | null;
+  onCropZoneClick?: (cropName: string) => void;
 }
 
 // ── Overlay definitions ──────────────────────────────────────────────
@@ -241,7 +243,7 @@ function buildAnnotations(
 
 // ── Component ────────────────────────────────────────────────────────
 
-export default function MapView({ lat, lon, simulationResult, cropZones }: Props) {
+export default function MapView({ lat, lon, simulationResult, cropZones, highlightedCrop, onCropZoneClick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<Engine | null>(null);
   const terrainRef = useRef<TerrainMesh | null>(null);
@@ -358,22 +360,22 @@ export default function MapView({ lat, lon, simulationResult, cropZones }: Props
           const terrainLayer = eng.layers.add({ name: 'Terrain', visible: true });
           terrain.addTo(terrainLayer.group);
 
-          // ── Crop zone overlay ──
-          const cropLayer = eng.layers.add({ name: 'Crop Zones', visible: true, opacity: 0.6 });
+          // ── Per-crop zone layers (one layer per crop for individual toggle) ──
           if (cropZones && cropZones.length > 0 && elevResult) {
-            // Elevation-based zone rendering: overlay conforms to terrain, clipped by elevation range
             const { height_data: hData, width: gridW, height: gridH, min_elevation: eMin, max_elevation: eMax } = elevResult;
             const eRange = eMax - eMin;
             const hScl = eRange > 0 ? 2 / eRange : 1;
-            // Match terrain mesh size: TerrainMesh uses width * 0.2
             const planeSize = gridW * 0.2;
             const segs = Math.min(gridW - 1, 127);
 
             cropZones.forEach((cz) => {
-              const [zLow, zHigh] = cz.elevation_range;
-              const zoneColor = new THREE.Color(cz.color);
+              const cropName = cz.crop.charAt(0).toUpperCase() + cz.crop.slice(1);
+              // Each crop gets its own toggleable layer
+              const layer = eng.layers.add({ name: `${cropName} Zone`, visible: true, opacity: 0.6 });
 
-              // Create plane matching terrain grid, displace to terrain + slight offset
+              const [zLow, zHigh] = cz.elevation_range ?? [eMin, eMax];
+              const zoneColor = new THREE.Color(cz.color || '#4caf50');
+
               const geom = new THREE.PlaneGeometry(planeSize, planeSize, segs, segs);
               geom.rotateX(-Math.PI / 2);
               const pos = geom.attributes.position;
@@ -391,101 +393,55 @@ export default function MapView({ lat, lon, simulationResult, cropZones }: Props
               geom.setAttribute('elevation', new THREE.BufferAttribute(elevs, 1));
 
               const mat = new THREE.ShaderMaterial({
-                uniforms: {
-                  uColor: { value: zoneColor },
-                  uElevLow: { value: zLow },
-                  uElevHigh: { value: zHigh },
-                },
-                vertexShader: `
-                  attribute float elevation;
-                  varying float vElev;
-                  void main() {
-                    vElev = elevation;
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                  }
-                `,
-                fragmentShader: `
-                  uniform vec3 uColor;
-                  uniform float uElevLow;
-                  uniform float uElevHigh;
-                  varying float vElev;
-                  void main() {
-                    if (vElev < uElevLow || vElev > uElevHigh) discard;
-                    gl_FragColor = vec4(uColor, 0.4);
-                  }
-                `,
-                transparent: true,
-                side: THREE.DoubleSide,
-                depthWrite: false,
+                uniforms: { uColor: { value: zoneColor }, uElevLow: { value: zLow }, uElevHigh: { value: zHigh } },
+                vertexShader: `attribute float elevation; varying float vElev; void main() { vElev = elevation; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+                fragmentShader: `uniform vec3 uColor; uniform float uElevLow; uniform float uElevHigh; varying float vElev; void main() { if (vElev < uElevLow || vElev > uElevHigh) discard; gl_FragColor = vec4(uColor, 0.4); }`,
+                transparent: true, side: THREE.DoubleSide, depthWrite: false,
               });
 
               const mesh = new THREE.Mesh(geom, mat);
-              cropLayer.group.add(mesh);
+              // Store crop name for click detection
+              mesh.userData = { cropName: cz.crop };
+              layer.group.add(mesh);
 
-              // Label sprite at zone center elevation
+              // Label sprite
               const centerY = ((zLow + zHigh) / 2 - eMin) * hScl;
               const canvas = document.createElement('canvas');
-              canvas.width = 256; canvas.height = 64;
+              canvas.width = 300; canvas.height = 64;
               const ctx = canvas.getContext('2d');
               if (ctx) {
-                ctx.fillStyle = cz.color;
-                ctx.fillRect(0, 0, 256, 64);
+                ctx.fillStyle = cz.color || '#4caf50';
+                ctx.roundRect(0, 0, 300, 64, 8); ctx.fill();
                 ctx.fillStyle = '#fff';
-                ctx.font = 'bold 28px sans-serif';
+                ctx.font = 'bold 26px sans-serif';
                 ctx.textAlign = 'center';
-                ctx.fillText(`${cz.crop.charAt(0).toUpperCase() + cz.crop.slice(1)} (${cz.type})`, 128, 40);
+                ctx.fillText(`${cropName} (${cz.type || 'field'})`, 150, 42);
                 const tex = new THREE.CanvasTexture(canvas);
                 const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.9 });
                 const sprite = new THREE.Sprite(spriteMat);
                 sprite.position.set(0, centerY + 2.0, 0);
                 sprite.scale.set(8, 2, 1);
-                cropLayer.group.add(sprite);
+                layer.group.add(sprite);
               }
             });
           } else if (cropZones && cropZones.length > 0) {
-            // Fallback without elevation data: colored bands by zone type
+            // Fallback without elevation
             const zoneTypes = ['valley', 'slope', 'hilltop'];
             cropZones.forEach((cz, idx) => {
-              const zoneGeom = new THREE.PlaneGeometry(28, 28 * (cz.area_fraction || 0.3));
+              const cropName = cz.crop.charAt(0).toUpperCase() + cz.crop.slice(1);
+              const layer = eng.layers.add({ name: `${cropName} Zone`, visible: true, opacity: 0.6 });
+              const zoneGeom = new THREE.PlaneGeometry(12, 12 * (cz.area_fraction || 0.3));
               zoneGeom.rotateX(-Math.PI / 2);
               const zoneMat = new THREE.MeshStandardMaterial({
-                color: new THREE.Color(cz.color), transparent: true, opacity: 0.35, side: THREE.DoubleSide,
+                color: new THREE.Color(cz.color || '#4caf50'), transparent: true, opacity: 0.35, side: THREE.DoubleSide,
               });
               const zoneMesh = new THREE.Mesh(zoneGeom, zoneMat);
-              const typeIdx = zoneTypes.indexOf(cz.type);
-              const yOff = typeIdx >= 0 ? typeIdx * 0.4 : idx * 0.4;
-              const zOff = (typeIdx >= 0 ? typeIdx - 1 : idx - 1) * 10;
-              zoneMesh.position.set(0, 0.3 + yOff, zOff);
-              cropLayer.group.add(zoneMesh);
-
-              const canvas = document.createElement('canvas');
-              canvas.width = 256; canvas.height = 64;
-              const ctx = canvas.getContext('2d');
-              if (ctx) {
-                ctx.fillStyle = cz.color;
-                ctx.fillRect(0, 0, 256, 64);
-                ctx.fillStyle = '#fff';
-                ctx.font = 'bold 28px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(`${cz.crop.charAt(0).toUpperCase() + cz.crop.slice(1)} (${cz.type})`, 128, 40);
-                const tex = new THREE.CanvasTexture(canvas);
-                const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.9 });
-                const sprite = new THREE.Sprite(spriteMat);
-                sprite.position.set(0, 2.5 + yOff, zOff);
-                sprite.scale.set(8, 2, 1);
-                cropLayer.group.add(sprite);
-              }
+              zoneMesh.userData = { cropName: cz.crop };
+              const typeIdx = zoneTypes.indexOf(cz.type || '');
+              const zOff = (typeIdx >= 0 ? typeIdx - 1 : idx - 1) * 5;
+              zoneMesh.position.set(0, 0.3, zOff);
+              layer.group.add(zoneMesh);
             });
-          } else {
-            // Default single green circle overlay
-            const zoneGeom = new THREE.CircleGeometry(15, 32);
-            zoneGeom.rotateX(-Math.PI / 2);
-            const zoneMat = new THREE.MeshStandardMaterial({
-              color: 0x22cc44, transparent: true, opacity: 0.3, side: THREE.DoubleSide,
-            });
-            const zoneMesh = new THREE.Mesh(zoneGeom, zoneMat);
-            zoneMesh.position.set(0, 0.5, 0);
-            cropLayer.group.add(zoneMesh);
           }
 
           // ── Build annotations from fetched data ──
@@ -594,6 +550,28 @@ export default function MapView({ lat, lon, simulationResult, cropZones }: Props
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [simulationResult]);
+
+  // ── Highlight a specific crop zone when selected from timeline ────
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine || !cropZones) return;
+    const allLayers = engine.layers.getAll();
+    for (const layer of allLayers) {
+      if (layer.name.endsWith(' Zone')) {
+        if (!highlightedCrop) {
+          // No highlight — show all crop zones
+          engine.layers.setVisible(layer.name, true);
+          engine.layers.setOpacity(layer.name, 0.6);
+        } else {
+          // Highlight matching crop, dim others
+          const isMatch = layer.name.toLowerCase().startsWith(highlightedCrop.toLowerCase());
+          engine.layers.setVisible(layer.name, true);
+          engine.layers.setOpacity(layer.name, isMatch ? 0.8 : 0.15);
+        }
+      }
+    }
+  }, [highlightedCrop, cropZones]);
 
   // ── Overlay controls ───────────────────────────────────────────────
 
