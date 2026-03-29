@@ -863,6 +863,15 @@ def _build_planting_timeline(crop_plans: list[dict]) -> list[dict]:
         harv_date = plan.get("_harvest_date")
 
         if sow_date:
+            # Land prep starts 21 days before sowing
+            prep_date = sow_date - timedelta(days=21)
+            events.append({
+                "date": prep_date.isoformat(),
+                "month": prep_date.strftime("%B"),
+                "crop": crop,
+                "action": f"Start land preparation for {crop}",
+                "type": "land_prep",
+            })
             events.append({
                 "date": sow_date.isoformat(),
                 "month": sow_date.strftime("%B"),

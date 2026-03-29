@@ -793,7 +793,7 @@ function LandAnalysisCards({ land }: { land: LandAnalysis }) {
     { label: 'Elevation', value: `${land.elevation.min}–${land.elevation.max}m`, sub: `mean ${land.elevation.mean}m`, tip: 'Height above sea level — affects temperature and crop suitability' },
     { label: 'Slope', value: `${land.elevation.slope_pct}%`, sub: 'gradient', tip: 'How steep the land is — affects water drainage and erosion' },
     { label: 'Cropland', value: `${land.landcover.cropland_pct}%`, sub: 'usable for farming', tip: 'Percentage of land classified as agricultural by satellite (ESA WorldCover 10m)' },
-    { label: 'Tree Cover', value: `${land.landcover.trees_pct}%`, sub: '' },
+    { label: 'Tree Cover', value: `${land.landcover.trees_pct}%`, sub: '', tip: 'Area covered by trees — cannot be used for crops without clearing' },
     { label: 'Sun Exposure', value: `${land.hillshade.sun_exposure_pct}%`, sub: `${land.hillshade.shaded_pct}% shaded`, tip: 'How much sunlight the field receives based on terrain shape and orientation' },
     { label: 'Usable Area', value: `${land.landcover.usable_area_ha} ha`, sub: 'cropland only', tip: 'Total area classified as cropland — excludes trees, buildings, water' },
   ];
