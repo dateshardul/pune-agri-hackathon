@@ -350,18 +350,24 @@ function PestRiskSection({ pestRisk }: { pestRisk: PestRisk }) {
 
 // ── Detailed Activity Timeline ────────────────────────────────────────
 
-// Farming phases in order
-const PHASES: { key: string; label: string; icon: string; color: string }[] = [
-  { key: 'land_prep', label: 'Land Preparation', icon: '🔨', color: '#5d4037' },
-  { key: 'sowing', label: 'Sowing', icon: '🌱', color: '#2e7d32' },
-  { key: 'irrigation', label: 'Irrigation', icon: '💧', color: '#1565c0' },
-  { key: 'fertilizer', label: 'Fertilizer', icon: '🧪', color: '#e65100' },
-  { key: 'weeding', label: 'Weeding & Care', icon: '🌿', color: '#6a1b9a' },
-  { key: 'monitoring', label: 'Monitoring', icon: '👁', color: '#00695c' },
-  { key: 'pest_management', label: 'Pest Management', icon: '🐛', color: '#c62828' },
-  { key: 'harvest', label: 'Harvest', icon: '🌾', color: '#f57f17' },
-  { key: 'post_harvest', label: 'Post-Harvest', icon: '📦', color: '#455a64' },
+// Farming phases — earth-tone sequential palette (warm→cool progression)
+const PHASES: { key: string; label: string; icon: string; color: string; bg: string }[] = [
+  { key: 'land_prep',       label: 'Land Preparation',  icon: '🔨', color: '#6d4c41', bg: '#efebe9' },
+  { key: 'sowing',          label: 'Sowing',             icon: '🌱', color: '#33691e', bg: '#f1f8e9' },
+  { key: 'irrigation',      label: 'Irrigation',         icon: '💧', color: '#0277bd', bg: '#e1f5fe' },
+  { key: 'fertilizer',      label: 'Fertilizer',         icon: '🧪', color: '#e65100', bg: '#fff3e0' },
+  { key: 'weeding',         label: 'Weeding & Care',     icon: '🌿', color: '#558b2f', bg: '#f1f8e9' },
+  { key: 'monitoring',      label: 'Crop Monitoring',    icon: '👁', color: '#00695c', bg: '#e0f2f1' },
+  { key: 'pest_management', label: 'Pest Management',    icon: '🐛', color: '#b71c1c', bg: '#ffebee' },
+  { key: 'harvest',         label: 'Harvest',            icon: '🌾', color: '#f9a825', bg: '#fffde7' },
+  { key: 'post_harvest',    label: 'Post-Harvest',       icon: '📦', color: '#37474f', bg: '#eceff1' },
 ];
+
+function daysBetween(d1: string, d2: string): number {
+  try {
+    return Math.round((new Date(d2).getTime() - new Date(d1).getTime()) / 86400000);
+  } catch { return 0; }
+}
 
 function DetailedTimeline({ activities }: { activities: CropActivity[] }) {
   const [showAll, setShowAll] = useState(false);
@@ -376,10 +382,17 @@ function DetailedTimeline({ activities }: { activities: CropActivity[] }) {
   });
   const activePhases = PHASES.filter(p => grouped[p.key]?.length);
 
+  // Total duration
+  const allDates = displayed.map(a => a.date).filter(Boolean).sort();
+  const totalDays = allDates.length >= 2 ? daysBetween(allDates[0], allDates[allDates.length - 1]) : 0;
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-        <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Activity Schedule</h4>
+        <h4 style={{ margin: 0, fontSize: '0.95rem' }}>
+          Activity Schedule
+          {totalDays > 0 && <span style={{ fontWeight: 400, fontSize: '0.78rem', color: '#888', marginLeft: 8 }}>({totalDays} days total)</span>}
+        </h4>
         <button onClick={() => setShowAll(!showAll)} style={{
           background: 'none', border: '1px solid #ccc', borderRadius: 4,
           padding: '2px 10px', fontSize: '0.75rem', cursor: 'pointer', color: '#555',
@@ -388,96 +401,106 @@ function DetailedTimeline({ activities }: { activities: CropActivity[] }) {
         </button>
       </div>
 
-      {/* Left-rail vertical timeline with phase blocks */}
-      <div style={{ position: 'relative', paddingLeft: 32 }}>
-        {/* Vertical line */}
-        <div style={{ position: 'absolute', left: 14, top: 0, bottom: 0, width: 2, background: '#e0e0e0' }} />
+      {/* Vertical timeline */}
+      <div style={{ position: 'relative', paddingLeft: 36 }}>
+        {/* Rail line */}
+        <div style={{ position: 'absolute', left: 15, top: 0, bottom: 0, width: 2, background: '#e0e0e0' }} />
 
         {activePhases.map((phase) => {
           const items = grouped[phase.key];
           const isOpen = expandedPhase === phase.key;
           const firstDate = items[0]?.date ?? '';
           const lastDate = items[items.length - 1]?.date ?? '';
-          const hasCritical = items.some(a => a.priority === 'critical');
+          const phaseDays = firstDate && lastDate ? daysBetween(firstDate, lastDate) : 0;
+          const critCount = items.filter(a => a.priority === 'critical').length;
 
           return (
-            <div key={phase.key} style={{ marginBottom: '0.5rem', position: 'relative' }}>
-              {/* Phase dot on the rail */}
+            <div key={phase.key} style={{ marginBottom: '0.6rem', position: 'relative' }}>
+              {/* Phase dot */}
               <div style={{
-                position: 'absolute', left: -25, top: 8,
-                width: 20, height: 20, borderRadius: '50%',
+                position: 'absolute', left: -28, top: 9,
+                width: 22, height: 22, borderRadius: '50%',
                 background: phase.color, border: '3px solid #fff',
-                boxShadow: '0 0 0 2px ' + phase.color + '44',
+                boxShadow: `0 0 0 2px ${phase.color}40`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '0.6rem',
-              }}>
-                {phase.icon}
-              </div>
+                fontSize: '0.65rem',
+              }}>{phase.icon}</div>
 
-              {/* Phase block */}
-              <div style={{
-                background: '#fff', borderRadius: 8,
-                border: `1px solid ${phase.color}33`,
-                overflow: 'hidden',
-              }}>
-                {/* Phase header — clickable to expand */}
+              {/* Phase card */}
+              <div style={{ borderRadius: 8, border: `1px solid ${phase.color}30`, overflow: 'hidden', background: '#fff' }}>
+                {/* Header */}
                 <button onClick={() => setExpandedPhase(isOpen ? null : phase.key)} style={{
                   width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem',
-                  padding: '8px 12px', background: phase.color + '0d', border: 'none',
+                  padding: '9px 14px', background: phase.bg, border: 'none',
                   cursor: 'pointer', textAlign: 'left',
+                  borderLeft: `4px solid ${phase.color}`,
                 }}>
                   <span style={{ fontWeight: 700, fontSize: '0.85rem', color: phase.color, flex: 1 }}>
                     {phase.label}
                   </span>
-                  {hasCritical && (
-                    <span style={{ padding: '1px 6px', borderRadius: 3, fontSize: '0.6rem', background: '#ffebee', color: '#c62828', fontWeight: 600 }}>
-                      {items.filter(a => a.priority === 'critical').length} critical
+                  <span style={{ fontSize: '0.68rem', color: '#777', background: '#fff', padding: '1px 7px', borderRadius: 10, border: '1px solid #e0e0e0' }}>
+                    {items.length} {items.length === 1 ? 'task' : 'tasks'}
+                  </span>
+                  {phaseDays > 0 && (
+                    <span style={{ fontSize: '0.68rem', color: '#777', background: '#fff', padding: '1px 7px', borderRadius: 10, border: '1px solid #e0e0e0' }}>
+                      {phaseDays} days
                     </span>
                   )}
-                  <span style={{ fontSize: '0.7rem', color: '#999' }}>
-                    {firstDate === lastDate ? firstDate : `${firstDate} → ${lastDate}`}
-                  </span>
-                  <span style={{ fontSize: '0.75rem', color: '#999' }}>{isOpen ? '▾' : '▸'}</span>
+                  {critCount > 0 && (
+                    <span style={{ fontSize: '0.65rem', background: '#c62828', color: '#fff', padding: '1px 7px', borderRadius: 10, fontWeight: 600 }}>
+                      {critCount} critical
+                    </span>
+                  )}
+                  <span style={{ fontSize: '0.8rem', color: '#aaa', transition: 'transform 0.2s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
                 </button>
 
-                {/* Expanded activity list */}
+                {/* Activities */}
                 {isOpen && (
-                  <div style={{ borderTop: `1px solid ${phase.color}22` }}>
-                    {items.map((a, i) => (
-                      <div key={i} style={{
-                        display: 'flex', alignItems: 'flex-start', gap: '0.5rem',
-                        padding: '6px 12px',
-                        background: i % 2 === 0 ? '#fff' : '#fafafa',
-                        borderBottom: i < items.length - 1 ? '1px solid #f5f5f5' : 'none',
-                      }}>
-                        {/* Date */}
-                        <div style={{
-                          minWidth: 72, fontSize: '0.72rem', color: '#888',
-                          paddingTop: 1,
+                  <div>
+                    {items.map((a, i) => {
+                      // Calculate days until next activity in this phase
+                      const nextDate = items[i + 1]?.date;
+                      const gap = nextDate ? daysBetween(a.date, nextDate) : 0;
+
+                      return (
+                        <div key={i} style={{
+                          display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
+                          padding: '7px 14px',
+                          background: i % 2 === 0 ? '#fff' : '#fafafa',
+                          borderTop: '1px solid #f0f0f0',
                         }}>
-                          {a.date}
-                        </div>
-
-                        {/* Priority dot */}
-                        <div style={{
-                          width: 8, height: 8, borderRadius: '50%', marginTop: 5, flexShrink: 0,
-                          background: a.priority === 'critical' ? '#c62828' : a.priority === 'recommended' ? '#f57f17' : '#ccc',
-                        }} />
-
-                        {/* Content */}
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600, fontSize: '0.82rem', color: '#333' }}>
-                            {a.activity}
-                            {a.priority === 'critical' && (
-                              <span style={{ marginLeft: 6, padding: '0 5px', borderRadius: 3, fontSize: '0.58rem', background: '#c62828', color: '#fff', fontWeight: 700, verticalAlign: 'middle' }}>
-                                CRITICAL
-                              </span>
+                          {/* Date + duration */}
+                          <div style={{ minWidth: 90, flexShrink: 0 }}>
+                            <div style={{ fontSize: '0.74rem', color: '#555', fontWeight: 500 }}>{a.date}</div>
+                            {gap > 0 && (
+                              <div style={{ fontSize: '0.62rem', color: '#aaa', marginTop: 1 }}>
+                                +{gap} days to next
+                              </div>
                             )}
                           </div>
-                          {a.details && <div style={{ fontSize: '0.73rem', color: '#666', marginTop: 2, lineHeight: 1.3 }}>{a.details}</div>}
+
+                          {/* Priority indicator */}
+                          <div style={{
+                            width: 3, alignSelf: 'stretch', borderRadius: 2, flexShrink: 0,
+                            background: a.priority === 'critical' ? '#c62828' : a.priority === 'recommended' ? '#f57f17' : '#e0e0e0',
+                          }} />
+
+                          {/* Content */}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
+                              <span style={{ fontWeight: 600, fontSize: '0.82rem', color: '#333' }}>{a.activity}</span>
+                              {a.priority === 'critical' && (
+                                <span style={{ padding: '0 5px', borderRadius: 3, fontSize: '0.55rem', background: '#c62828', color: '#fff', fontWeight: 700 }}>CRITICAL</span>
+                              )}
+                              {a.priority === 'recommended' && (
+                                <span style={{ padding: '0 5px', borderRadius: 3, fontSize: '0.55rem', background: '#f57f17', color: '#fff', fontWeight: 700 }}>REC</span>
+                              )}
+                            </div>
+                            {a.details && <div style={{ fontSize: '0.73rem', color: '#666', marginTop: 2, lineHeight: 1.35 }}>{a.details}</div>}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
