@@ -78,7 +78,7 @@ const containerStyle = {
   height: '500px',
   borderRadius: '8px',
   overflow: 'hidden' as const,
-  background: '#0a0a1a',
+  background: '#d4e6f1',
 };
 
 const panelStyle = {
@@ -308,7 +308,7 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
       const engine = new Engine({
         container: containerRef.current,
         antialias: true,
-        backgroundColor: 0x0a0a1a,
+        backgroundColor: 0xd4e6f1,
         enableShadows: true,
       });
 
@@ -359,6 +359,34 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
 
           const terrainLayer = eng.layers.add({ name: 'Terrain', visible: true });
           terrain.addTo(terrainLayer.group);
+
+          // Satellite/map tile as ground texture from OpenStreetMap
+          try {
+            const zoom = 14;
+            const n = Math.pow(2, zoom);
+            const tileX = Math.floor((lon + 180) / 360 * n);
+            const latRad = lat * Math.PI / 180;
+            const tileY = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+            const tileUrl = `https://tile.openstreetmap.org/${zoom}/${tileX}/${tileY}.png`;
+            const mapTex = new THREE.TextureLoader().load(tileUrl);
+            mapTex.colorSpace = THREE.SRGBColorSpace;
+            const groundSize = terrainRef.current ? (elevResult?.width ?? 64) * 0.2 * 3 : 60;
+            const groundGeom = new THREE.PlaneGeometry(groundSize, groundSize);
+            groundGeom.rotateX(-Math.PI / 2);
+            const groundMat = new THREE.MeshStandardMaterial({ map: mapTex, roughness: 1 });
+            const ground = new THREE.Mesh(groundGeom, groundMat);
+            ground.position.y = -0.3;
+            ground.receiveShadow = true;
+            terrainLayer.group.add(ground);
+          } catch (e) {
+            // Fallback: plain green ground
+            const groundGeom = new THREE.PlaneGeometry(60, 60);
+            groundGeom.rotateX(-Math.PI / 2);
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0xc8dbbe, roughness: 1 });
+            const ground = new THREE.Mesh(groundGeom, groundMat);
+            ground.position.y = -0.3;
+            terrainLayer.group.add(ground);
+          }
 
           // ── Crop Zones (parent layer with per-crop sub-layers) ──
           eng.layers.add({ name: 'Crop Zones', visible: true });
