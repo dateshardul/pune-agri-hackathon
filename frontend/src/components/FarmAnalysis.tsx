@@ -755,10 +755,10 @@ export default function FarmAnalysis() {
     };
 
     try {
-      // Race the API call against a 90-second timeout
+      // Race the API call against a 30-second timeout
       const res = await Promise.race([
         analyzeFarm(req),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 90000)),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 30000)),
       ]);
       clearTimers();
       steps.forEach(s => { s.status = 'done'; });

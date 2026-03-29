@@ -360,25 +360,103 @@ export default function MapView({ lat, lon, simulationResult, cropZones }: Props
 
           // ── Crop zone overlay ──
           const cropLayer = eng.layers.add({ name: 'Crop Zones', visible: true, opacity: 0.6 });
-          if (cropZones && cropZones.length > 0) {
-            // Multi-crop zone rendering: each zone as a colored band at different elevations
+          if (cropZones && cropZones.length > 0 && elevResult) {
+            // Elevation-based zone rendering: overlay conforms to terrain, clipped by elevation range
+            const { height_data: hData, width: gridW, height: gridH, min_elevation: eMin, max_elevation: eMax } = elevResult;
+            const eRange = eMax - eMin;
+            const hScl = eRange > 0 ? 2 / eRange : 1;
+            const planeSize = 28;
+            const segs = Math.min(gridW - 1, 127);
+
+            cropZones.forEach((cz) => {
+              const [zLow, zHigh] = cz.elevation_range;
+              const zoneColor = new THREE.Color(cz.color);
+
+              // Create plane matching terrain grid, displace to terrain + slight offset
+              const geom = new THREE.PlaneGeometry(planeSize, planeSize, segs, segs);
+              geom.rotateX(-Math.PI / 2);
+              const pos = geom.attributes.position;
+              const elevs = new Float32Array(pos.count);
+
+              for (let i = 0; i < pos.count; i++) {
+                const gx = Math.min(Math.max(Math.round(((pos.getX(i) / planeSize) + 0.5) * (gridW - 1)), 0), gridW - 1);
+                const gz = Math.min(Math.max(Math.round(((pos.getZ(i) / planeSize) + 0.5) * (gridH - 1)), 0), gridH - 1);
+                const absElev = hData[Math.min(gz * gridW + gx, hData.length - 1)];
+                pos.setY(i, (absElev - eMin) * hScl + 0.03);
+                elevs[i] = absElev;
+              }
+              pos.needsUpdate = true;
+              geom.computeVertexNormals();
+              geom.setAttribute('elevation', new THREE.BufferAttribute(elevs, 1));
+
+              const mat = new THREE.ShaderMaterial({
+                uniforms: {
+                  uColor: { value: zoneColor },
+                  uElevLow: { value: zLow },
+                  uElevHigh: { value: zHigh },
+                },
+                vertexShader: `
+                  attribute float elevation;
+                  varying float vElev;
+                  void main() {
+                    vElev = elevation;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                  }
+                `,
+                fragmentShader: `
+                  uniform vec3 uColor;
+                  uniform float uElevLow;
+                  uniform float uElevHigh;
+                  varying float vElev;
+                  void main() {
+                    if (vElev < uElevLow || vElev > uElevHigh) discard;
+                    gl_FragColor = vec4(uColor, 0.4);
+                  }
+                `,
+                transparent: true,
+                side: THREE.DoubleSide,
+                depthWrite: false,
+              });
+
+              const mesh = new THREE.Mesh(geom, mat);
+              cropLayer.group.add(mesh);
+
+              // Label sprite at zone center elevation
+              const centerY = ((zLow + zHigh) / 2 - eMin) * hScl;
+              const canvas = document.createElement('canvas');
+              canvas.width = 256; canvas.height = 64;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.fillStyle = cz.color;
+                ctx.fillRect(0, 0, 256, 64);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 28px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${cz.crop.charAt(0).toUpperCase() + cz.crop.slice(1)} (${cz.type})`, 128, 40);
+                const tex = new THREE.CanvasTexture(canvas);
+                const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.9 });
+                const sprite = new THREE.Sprite(spriteMat);
+                sprite.position.set(0, centerY + 2.0, 0);
+                sprite.scale.set(8, 2, 1);
+                cropLayer.group.add(sprite);
+              }
+            });
+          } else if (cropZones && cropZones.length > 0) {
+            // Fallback without elevation data: colored bands by zone type
             const zoneTypes = ['valley', 'slope', 'hilltop'];
             cropZones.forEach((cz, idx) => {
               const zoneGeom = new THREE.PlaneGeometry(28, 28 * (cz.area_fraction || 0.3));
               zoneGeom.rotateX(-Math.PI / 2);
-              const zoneColor = new THREE.Color(cz.color);
               const zoneMat = new THREE.MeshStandardMaterial({
-                color: zoneColor, transparent: true, opacity: 0.35, side: THREE.DoubleSide,
+                color: new THREE.Color(cz.color), transparent: true, opacity: 0.35, side: THREE.DoubleSide,
               });
               const zoneMesh = new THREE.Mesh(zoneGeom, zoneMat);
-              // Position zones vertically: valley at bottom, slope in middle, hilltop at top
               const typeIdx = zoneTypes.indexOf(cz.type);
               const yOff = typeIdx >= 0 ? typeIdx * 0.4 : idx * 0.4;
               const zOff = (typeIdx >= 0 ? typeIdx - 1 : idx - 1) * 10;
               zoneMesh.position.set(0, 0.3 + yOff, zOff);
               cropLayer.group.add(zoneMesh);
 
-              // Label sprite
               const canvas = document.createElement('canvas');
               canvas.width = 256; canvas.height = 64;
               const ctx = canvas.getContext('2d');
