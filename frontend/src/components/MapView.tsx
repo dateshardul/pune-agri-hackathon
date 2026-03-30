@@ -18,6 +18,14 @@ interface CropZoneWithName {
   crop: string;
 }
 
+interface LandcoverData {
+  cropland_pct: number;
+  trees_pct: number;
+  built_pct: number;
+  water_pct: number;
+  bare_pct: number;
+}
+
 interface Props {
   lat: number;
   lon: number;
@@ -25,6 +33,7 @@ interface Props {
   cropZones?: CropZoneWithName[];
   highlightedCrop?: string | null;
   onCropZoneClick?: (cropName: string) => void;
+  landcover?: LandcoverData;
 }
 
 // ── Overlay definitions ──────────────────────────────────────────────
@@ -243,7 +252,7 @@ function buildAnnotations(
 
 // ── Component ────────────────────────────────────────────────────────
 
-export default function MapView({ lat, lon, simulationResult, cropZones, highlightedCrop, onCropZoneClick: _onCropZoneClick }: Props) {
+export default function MapView({ lat, lon, simulationResult, cropZones, highlightedCrop, onCropZoneClick: _onCropZoneClick, landcover }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<Engine | null>(null);
   const terrainRef = useRef<TerrainMesh | null>(null);
@@ -934,6 +943,38 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
                   Click other markers to see weather and soil data from this location.
                 </div>
               )}
+            </div>
+          )}
+
+          {/* LULC summary legend */}
+          {landcover && cropZones && cropZones.length > 0 && !selectedAnnotation && (
+            <div style={{
+              position: 'absolute', bottom: '60px', left: '12px',
+              background: 'rgba(10,10,30,0.92)', color: '#fff',
+              padding: '10px 14px', borderRadius: '8px', fontSize: '0.78rem',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(0,212,255,0.3)',
+              minWidth: '150px',
+            }}>
+              <div style={{ fontWeight: 600, marginBottom: '6px', fontSize: '0.8rem' }}>Land Use</div>
+              {[
+                { label: 'Cropland', pct: landcover.cropland_pct, color: '#8bc34a' },
+                { label: 'Trees', pct: landcover.trees_pct, color: '#2e7d32' },
+                { label: 'Built-up', pct: landcover.built_pct, color: '#757575' },
+                { label: 'Water', pct: landcover.water_pct, color: '#1976d2' },
+                { label: 'Bare', pct: landcover.bare_pct, color: '#d7ccc8' },
+              ].filter(item => item.pct > 0).map(item => (
+                <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                  <div style={{
+                    width: `${Math.max(8, item.pct * 0.8)}px`, height: '10px',
+                    background: item.color, borderRadius: '2px', flexShrink: 0,
+                  }} />
+                  <span style={{ color: '#ccc', fontSize: '0.72rem' }}>
+                    {item.label} <strong style={{ color: '#fff' }}>{item.pct}%</strong>
+                  </span>
+                </div>
+              ))}
+              <div style={{ fontSize: '0.62rem', color: '#888', marginTop: '4px' }}>ESA WorldCover 10m</div>
             </div>
           )}
 

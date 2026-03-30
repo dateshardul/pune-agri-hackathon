@@ -329,26 +329,28 @@ function PlantingTimeline({ events, cropPlans, highlightedCrop, onCropClick }: {
             </div>
 
             <div onClick={() => onCropClick?.(bar.crop)}
-              style={{ display: 'flex', alignItems: 'center', height: isSelected ? 28 : 18, position: 'relative', cursor: 'pointer', transition: 'height 0.2s' }}>
+              style={{ position: 'relative', cursor: 'pointer', transition: 'height 0.2s' }}>
 
               {/* Main bar — solid color when not selected */}
               {!isSelected && (
-                <div style={{
-                  position: 'absolute',
-                  left: `${(bar.startMonth / 12) * 100}%`,
-                  width: `${(span / 12) * 100}%`,
-                  height: '100%', borderRadius: 4,
-                  background: bar.color, opacity: isDimmed ? 0.2 : 0.75,
-                  transition: 'all 0.2s',
-                }} />
+                <div style={{ height: 18, position: 'relative' }}>
+                  <div style={{
+                    position: 'absolute',
+                    left: `${(bar.startMonth / 12) * 100}%`,
+                    width: `${(span / 12) * 100}%`,
+                    height: '100%', borderRadius: 4,
+                    background: bar.color, opacity: isDimmed ? 0.2 : 0.75,
+                    transition: 'all 0.2s',
+                  }} />
+                </div>
               )}
 
-              {/* Activity-colored segments when selected */}
+              {/* Activity line segments with nodes when selected */}
               {isSelected && bar.activities && bar.activities.length > 0 && (() => {
                 // Group activities by category, find time span of each
-                const catSpans: Record<string, { minDay: number; maxDay: number }> = {};
+                const catSpans: Record<string, { minDay: number; maxDay: number; label: string }> = {};
                 bar.activities.forEach(a => {
-                  if (!catSpans[a.category]) catSpans[a.category] = { minDay: a.day, maxDay: a.day };
+                  if (!catSpans[a.category]) catSpans[a.category] = { minDay: a.day, maxDay: a.day, label: a.activity };
                   catSpans[a.category].minDay = Math.min(catSpans[a.category].minDay, a.day);
                   catSpans[a.category].maxDay = Math.max(catSpans[a.category].maxDay, a.day);
                 });
@@ -356,33 +358,84 @@ function PlantingTimeline({ events, cropPlans, highlightedCrop, onCropClick }: {
                 const baseDay = Math.min(...bar.activities.map(a => a.day));
                 const barLeft = (bar.startMonth / 12) * 100;
                 const barWidth = (span / 12) * 100;
+                const rowHeight = 20;
+                const nodeSize = 8;
+                const cats = Object.entries(catSpans);
 
-                return Object.entries(catSpans).map(([cat, s]) => {
-                  const segLeft = barLeft + ((s.minDay - baseDay) / totalDays) * barWidth;
-                  const segWidth = Math.max(0.5, ((s.maxDay - s.minDay + 1) / totalDays) * barWidth);
-                  return (
-                    <div key={cat} title={cat.replace(/_/g, ' ')} style={{
-                      position: 'absolute',
-                      left: `${segLeft}%`,
-                      width: `${segWidth}%`,
-                      height: '100%', borderRadius: 2,
-                      background: PHASE_COLORS[cat] ?? bar.color,
-                      opacity: 0.85,
-                    }} />
-                  );
-                });
+                return (
+                  <div style={{ position: 'relative', height: cats.length * rowHeight + 4 }}>
+                    {cats.map(([cat, s], rowIdx) => {
+                      const startPct = barLeft + ((s.minDay - baseDay) / totalDays) * barWidth;
+                      const endPct = barLeft + ((s.maxDay - baseDay) / totalDays) * barWidth;
+                      const color = PHASE_COLORS[cat] ?? bar.color;
+                      const topY = rowIdx * rowHeight + 6;
+                      const label = cat.replace(/_/g, ' ');
+                      const dateStr = bar.activities?.find(a => a.category === cat)?.date;
+                      const dateLabel = dateStr ? new Date(dateStr).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) : '';
+
+                      return (
+                        <div key={cat} title={`${label}${dateLabel ? ` (${dateLabel})` : ''}`} style={{ position: 'absolute', top: topY, left: 0, right: 0, height: rowHeight }}>
+                          {/* Line segment */}
+                          <div style={{
+                            position: 'absolute',
+                            left: `${startPct}%`,
+                            width: `${Math.max(0.3, endPct - startPct)}%`,
+                            top: (rowHeight - 2) / 2,
+                            height: 2,
+                            background: color,
+                          }} />
+                          {/* Start node */}
+                          <div style={{
+                            position: 'absolute',
+                            left: `${startPct}%`,
+                            top: (rowHeight - nodeSize) / 2,
+                            width: nodeSize, height: nodeSize,
+                            borderRadius: '50%',
+                            border: `2px solid ${color}`,
+                            background: '#fff',
+                            transform: 'translateX(-50%)',
+                          }} />
+                          {/* End node */}
+                          <div style={{
+                            position: 'absolute',
+                            left: `${endPct}%`,
+                            top: (rowHeight - nodeSize) / 2,
+                            width: nodeSize, height: nodeSize,
+                            borderRadius: '50%',
+                            border: `2px solid ${color}`,
+                            background: '#fff',
+                            transform: 'translateX(-50%)',
+                          }} />
+                          {/* Label */}
+                          <span style={{
+                            position: 'absolute',
+                            left: `${endPct + 0.5}%`,
+                            top: 1,
+                            fontSize: '0.58rem',
+                            color: '#777',
+                            whiteSpace: 'nowrap',
+                          }}>
+                            {label}{dateLabel ? ` (${dateLabel})` : ''}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
               })()}
 
               {/* Fallback solid bar when selected but no activities */}
               {isSelected && (!bar.activities || bar.activities.length === 0) && (
-                <div style={{
-                  position: 'absolute',
-                  left: `${(bar.startMonth / 12) * 100}%`,
-                  width: `${(span / 12) * 100}%`,
-                  height: '100%', borderRadius: 4,
-                  background: bar.color, opacity: 0.9,
-                  border: '2px solid #333',
-                }} />
+                <div style={{ height: 18, position: 'relative' }}>
+                  <div style={{
+                    position: 'absolute',
+                    left: `${(bar.startMonth / 12) * 100}%`,
+                    width: `${(span / 12) * 100}%`,
+                    height: '100%', borderRadius: 4,
+                    background: bar.color, opacity: 0.9,
+                    border: '2px solid #333',
+                  }} />
+                </div>
               )}
             </div>
           </div>
@@ -1625,7 +1678,8 @@ export default function FarmAnalysis() {
               <MapView lat={lat} lon={lon} simulationResult={null}
                 cropZones={cropPlans.filter(p => p.feasibility?.viable !== false).map(p => ({ ...(p.zone ?? {}), crop: p.crop }))}
                 highlightedCrop={highlightedCrop}
-                onCropZoneClick={(crop) => setHighlightedCrop(prev => prev === crop ? null : crop)} />
+                onCropZoneClick={(crop) => setHighlightedCrop(prev => prev === crop ? null : crop)}
+                landcover={land?.landcover} />
             </div>
           </section>
 
