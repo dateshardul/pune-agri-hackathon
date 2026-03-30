@@ -1230,7 +1230,7 @@ export default function FarmAnalysis() {
       if (resAny.error === 'location_not_farmable') {
         setError(String(resAny.message ?? 'This location is not suitable for farming.'));
         setNotFarmableLand(res.land_analysis ?? null);
-        setPhase('results');
+        setPhase('results'); window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
 
@@ -1246,7 +1246,7 @@ export default function FarmAnalysis() {
       setSimProgress(100);
       setResult(res);
       await new Promise(r => setTimeout(r, 600));
-      setPhase('results');
+      setPhase('results'); window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch {
       clearTimers();
       const mock = getMockResponse(req);
@@ -1256,7 +1256,7 @@ export default function FarmAnalysis() {
       setResult(mock);
       setUsingMock(true);
       await new Promise(r => setTimeout(r, 600));
-      setPhase('results');
+      setPhase('results'); window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
