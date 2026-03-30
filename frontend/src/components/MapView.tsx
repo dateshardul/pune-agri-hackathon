@@ -386,7 +386,10 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
               // Each crop gets its own toggleable layer
               const layer = eng.layers.add({ name: `  ${cropName}`, visible: true, opacity: 0.6 });
 
-              const [zLow, zHigh] = cz.elevation_range ?? [eMin, eMax];
+              // Add margin to elevation range so flat/boundary areas are included
+              const rawRange = cz.elevation_range ?? [eMin, eMax];
+              const zLow = rawRange[0] - 5;
+              const zHigh = rawRange[1] + 5;
               const zoneColor = new THREE.Color(cz.color || '#4caf50');
 
               const geom = new THREE.PlaneGeometry(planeSize, planeSize, segs, segs);
@@ -408,7 +411,7 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
               const mat = new THREE.ShaderMaterial({
                 uniforms: { uColor: { value: zoneColor }, uElevLow: { value: zLow }, uElevHigh: { value: zHigh } },
                 vertexShader: `attribute float elevation; varying float vElev; void main() { vElev = elevation; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-                fragmentShader: `uniform vec3 uColor; uniform float uElevLow; uniform float uElevHigh; varying float vElev; void main() { if (vElev < uElevLow || vElev > uElevHigh) discard; gl_FragColor = vec4(uColor, 0.4); }`,
+                fragmentShader: `uniform vec3 uColor; uniform float uElevLow; uniform float uElevHigh; varying float vElev; void main() { if (vElev < uElevLow || vElev > uElevHigh) discard; gl_FragColor = vec4(uColor, 0.25); }`,
                 transparent: true, side: THREE.DoubleSide, depthWrite: false,
               });
 
@@ -503,7 +506,7 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
               z: -(lat_ - lat) * 11100 * 0.2,
             }),
             elevation: 0.5,
-            style: { strokeColor: 0x22cc44, fillColor: 0x22cc44, fillOpacity: 0.2 },
+            style: { strokeColor: 0x22cc44, fillColor: 0x22cc44, fillOpacity: 0.05, strokeWidth: 2 },
           });
           // Synthetic rectangular field boundary around the location
           const fieldSize = 0.003; // ~330m

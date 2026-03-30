@@ -12,15 +12,44 @@ import AdvisoryChat from './AdvisoryChat';
 
 // ── Tooltip help icon ───────────────────────────────────────────────
 function HelpTip({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
   return (
-    <span title={text} style={{
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      width: 16, height: 16, borderRadius: '50%',
-      background: '#e0e0e0', color: '#666',
-      fontSize: '0.6rem', fontWeight: 700, cursor: 'help',
-      marginLeft: 4, verticalAlign: 'middle',
-    }}>?</span>
+    <span style={{ position: 'relative', display: 'inline-block', marginLeft: 4, verticalAlign: 'middle' }}
+      onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 16, height: 16, borderRadius: '50%',
+        background: '#e0e0e0', color: '#666',
+        fontSize: '0.6rem', fontWeight: 700, cursor: 'help',
+      }}>?</span>
+      {show && (
+        <span style={{
+          position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+          marginBottom: 6, padding: '6px 10px', borderRadius: 6,
+          background: '#333', color: '#fff', fontSize: '0.72rem', lineHeight: 1.4,
+          whiteSpace: 'normal', width: 220, textAlign: 'left',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.2)', zIndex: 100,
+          pointerEvents: 'none',
+        }}>
+          {text}
+          <span style={{
+            position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+            width: 0, height: 0,
+            borderLeft: '6px solid transparent', borderRight: '6px solid transparent',
+            borderTop: '6px solid #333',
+          }} />
+        </span>
+      )}
+    </span>
   );
+}
+
+// ── Date formatting helper ──────────────────────────────────────────
+function fmtDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch { return iso; }
 }
 
 // Error boundary to catch render crashes and show error instead of blank screen
@@ -243,20 +272,31 @@ function PlantingTimeline({ events, cropPlans, highlightedCrop, onCropClick }: {
   for (const plan of cropPlans) {
     if (plan.feasibility && !plan.feasibility.viable && plan.feasibility.severity === 'impossible') continue;
     const activities = plan.detailed_timeline ?? [];
-    const sowMonth = plan.sowing?.best_month ?? '';
-    let startIdx = monthIndex(sowMonth);
-    let endIdx = startIdx;
 
-    if (activities.length > 0) {
+    // Prefer optimal_period dates (includes land prep start to harvest)
+    const optStart = plan.sowing?.optimal_period?.start;
+    const optEnd = plan.sowing?.optimal_period?.end;
+    let startIdx: number;
+    let endIdx: number;
+
+    if (optStart && optEnd) {
+      startIdx = new Date(optStart).getMonth();
+      endIdx = new Date(optEnd).getMonth();
+    } else if (activities.length > 0) {
       // Use actual activity dates for accurate span
       const dates = activities.map(a => a.date).filter(Boolean).sort();
       if (dates.length > 0) {
         startIdx = new Date(dates[0]).getMonth();
         endIdx = new Date(dates[dates.length - 1]).getMonth();
+      } else {
+        const sowMonth = plan.sowing?.best_month ?? '';
+        startIdx = monthIndex(sowMonth);
+        endIdx = Math.min(11, startIdx + 5);
       }
     } else {
       // Fallback: start 1 month before sowing, end from events
-      startIdx = (startIdx + 11) % 12; // -1 month for land prep
+      const sowMonth = plan.sowing?.best_month ?? '';
+      startIdx = (monthIndex(sowMonth) + 11) % 12; // -1 month for land prep
       const harvestEvent = events.find(e => e.crops?.includes(plan.crop) && e.action?.toLowerCase().includes('harvest'));
       endIdx = harvestEvent ? monthIndex(harvestEvent.month) : Math.min(11, startIdx + 5);
     }
@@ -497,7 +537,7 @@ function DetailedTimeline({ activities }: { activities: CropActivity[] }) {
           background: 'none', border: '1px solid #ccc', borderRadius: 4,
           padding: '2px 10px', fontSize: '0.75rem', cursor: 'pointer', color: '#555',
         }}>
-          {showAll ? 'Critical only' : `All ${activities.length} activities`}
+          {showAll ? 'Critical only' : 'All activities'}
         </button>
       </div>
 
@@ -571,7 +611,7 @@ function DetailedTimeline({ activities }: { activities: CropActivity[] }) {
                         }}>
                           {/* Date + duration */}
                           <div style={{ minWidth: 90, flexShrink: 0 }}>
-                            <div style={{ fontSize: '0.74rem', color: '#555', fontWeight: 500 }}>{a.date}</div>
+                            <div style={{ fontSize: '0.74rem', color: '#555', fontWeight: 500 }}>{fmtDate(a.date)}</div>
                             {gap > 0 && (
                               <div style={{ fontSize: '0.62rem', color: '#aaa', marginTop: 1 }}>
                                 +{gap} days to next
@@ -590,7 +630,8 @@ function DetailedTimeline({ activities }: { activities: CropActivity[] }) {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
                               <span style={{ fontWeight: 600, fontSize: '0.82rem', color: '#333' }}>{a.activity}</span>
                               {a.priority === 'critical' && (
-                                <span style={{ padding: '0 5px', borderRadius: 3, fontSize: '0.55rem', background: '#c62828', color: '#fff', fontWeight: 700 }}>CRITICAL</span>
+                                <><span style={{ padding: '0 5px', borderRadius: 3, fontSize: '0.55rem', background: '#c62828', color: '#fff', fontWeight: 700 }}>CRITICAL</span>
+                                <HelpTip text={a.details || 'This step is essential for crop success'} /></>
                               )}
                               {a.priority === 'recommended' && (
                                 <span style={{ padding: '0 5px', borderRadius: 3, fontSize: '0.55rem', background: '#f57f17', color: '#fff', fontWeight: 700 }}>REC</span>
@@ -708,7 +749,7 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
               borderRadius: 10, padding: '1rem', marginBottom: '1rem',
             }}>
               <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1b5e20' }}>
-                {plan.sowing.optimal_period.start} &ndash; {plan.sowing.optimal_period.end}
+                {fmtDate(plan.sowing.optimal_period.start)} &ndash; {fmtDate(plan.sowing.optimal_period.end)}
               </div>
               <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginTop: '0.4rem' }}>
                 <div><div style={{ fontSize: '0.7rem', color: '#666' }}>Season</div><div style={{ fontWeight: 600 }}>{plan.sowing.season}</div></div>
