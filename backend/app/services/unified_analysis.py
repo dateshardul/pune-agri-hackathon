@@ -490,7 +490,7 @@ def _assign_crop_zones(
 
     for i, crop in enumerate(sorted_crops):
         if n == 1:
-            ztype = "valley-slope"
+            ztype = "entire field"
             elev_lo, elev_hi = elev_min, elev_max
             area_frac = 1.0
         elif n == 2:
@@ -1092,20 +1092,35 @@ async def _analyze_single_crop(
     """
     plan = {"crop": crop, "zone": zone}
 
-    # If user provided a preferred sowing date, use it for both display and simulation
+    # Season → approximate sowing month/day mapping
+    SEASON_SOWING = {
+        "kharif": (6, 20),   # Jun 20
+        "rabi": (11, 1),     # Nov 1
+        "zaid": (3, 1),      # Mar 1
+        "summer": (3, 1),
+    }
+
+    # If user provided a preferred sowing date or season, use it
     if preferred_sowing:
-        try:
-            user_sowing = date.fromisoformat(preferred_sowing)
-            planning_sowing = user_sowing
-            sowing_date = user_sowing
-        except ValueError:
-            # preferred_sowing might be a season name like "kharif" or "rabi"
-            planning_sowing = get_default_sowing_date(crop, planning=True)
-            sowing_date = get_default_sowing_date(crop, planning=False)
+        season_lower = preferred_sowing.lower().strip()
+        if season_lower in SEASON_SOWING:
+            # User picked a season — override sowing to that season's date
+            sm, sd = SEASON_SOWING[season_lower]
+            today_now = date.today()
+            planning_sowing = date(today_now.year, sm, sd)
+            if planning_sowing < today_now:
+                planning_sowing = date(today_now.year + 1, sm, sd)
+            sowing_date = date(today_now.year - 1, sm, sd)  # past season for simulation
+        else:
+            try:
+                user_sowing = date.fromisoformat(preferred_sowing)
+                planning_sowing = user_sowing
+                sowing_date = user_sowing
+            except ValueError:
+                planning_sowing = get_default_sowing_date(crop, planning=True)
+                sowing_date = get_default_sowing_date(crop, planning=False)
     else:
-        # Planning date (NEXT season) for display to user
         planning_sowing = get_default_sowing_date(crop, planning=True)
-        # Simulation date (PAST season) for model runs with real weather data
         sowing_date = get_default_sowing_date(crop, planning=False)
 
     planning_harvest = get_default_harvest_date(crop, planning_sowing)
