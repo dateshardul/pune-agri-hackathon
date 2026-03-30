@@ -1132,20 +1132,31 @@ async def _analyze_single_crop(
         if harvest_date > last_weather_date:
             harvest_date = last_weather_date
 
-    season = CROP_SEASONS.get(crop, "unknown")
+    natural_season = CROP_SEASONS.get(crop, "unknown")
+    # If user overrode season, detect the actual season being used
+    actual_season = natural_season
+    if preferred_sowing and preferred_sowing.lower().strip() in ("kharif", "rabi", "zaid", "summer"):
+        actual_season = preferred_sowing.lower().strip()
+
+    # Detect season mismatch — crop planted in wrong season
+    season_mismatch = (actual_season != natural_season) and preferred_sowing
+    plan["_season_mismatch"] = season_mismatch
+    plan["_natural_season"] = natural_season
+
     cal = CROP_CALENDAR.get(crop, (11, 1, 120))
-    # Land prep starts ~21 days before sowing
     land_prep_start = planning_sowing - timedelta(days=21)
     plan["sowing"] = {
         "optimal_period": {
             "start": land_prep_start.isoformat(),
             "end": planning_harvest.isoformat(),
             "sowing_date": planning_sowing.isoformat(),
-            "expected_yield_kg_ha": CROP_BASE_YIELDS.get(crop, 3000),
-            "vs_standard_pct": "+5%",
-            "risk_level": "low",
+            "expected_yield_kg_ha": 0,  # will be updated after WOFOST runs
+            "vs_standard_pct": "0%",
+            "risk_level": "high" if season_mismatch else "low",
         },
-        "season": season,
+        "season": actual_season,
+        "natural_season": natural_season,
+        "season_warning": f"{crop.capitalize()} is naturally a {natural_season} crop — planting in {actual_season} may significantly reduce yield" if season_mismatch else None,
         "best_month": planning_sowing.strftime("%B"),
         "best_week": f"{planning_sowing.isoformat()} to {(planning_sowing + timedelta(days=6)).isoformat()}",
     }
@@ -1204,6 +1215,23 @@ async def _analyze_single_crop(
     # Format model outputs
     plan["models"] = _format_model_outputs(crop, wofost_result, aquacrop_result, dssat_result)
 
+    # Update expected yield with actual WOFOST output (not hardcoded base yield)
+    actual_yield = 0
+    if wofost_result and isinstance(wofost_result, dict):
+        actual_yield = wofost_result.get("summary", {}).get("TWSO", 0) or 0
+    if actual_yield > 0:
+        plan["sowing"]["optimal_period"]["expected_yield_kg_ha"] = round(actual_yield, 1)
+        base = CROP_BASE_YIELDS.get(crop, 3000)
+        pct_diff = ((actual_yield - base) / base) * 100 if base > 0 else 0
+        plan["sowing"]["optimal_period"]["vs_standard_pct"] = f"{pct_diff:+.1f}%"
+    else:
+        plan["sowing"]["optimal_period"]["expected_yield_kg_ha"] = 0
+        plan["sowing"]["optimal_period"]["vs_standard_pct"] = "N/A"
+
+    # If season mismatch and yield is 0 or very low → mark as not viable
+    if plan.get("_season_mismatch") and actual_yield < CROP_BASE_YIELDS.get(crop, 3000) * 0.3:
+        plan["sowing"]["optimal_period"]["risk_level"] = "high"
+
     # Hazard analysis
     zone_type = zone.get("type", "slope")
     plan["hazards"] = _analyze_crop_cycle_hazards(
@@ -1219,6 +1247,17 @@ async def _analyze_single_crop(
     plan["feasibility"] = _check_feasibility(
         crop, wofost_result, aquacrop_result, plan["hazards"], gw_result,
     )
+    # Add season mismatch warning to feasibility
+    if plan.get("_season_mismatch"):
+        natural = plan.get("_natural_season", "unknown")
+        if not plan["feasibility"].get("reasons"):
+            plan["feasibility"]["reasons"] = []
+        plan["feasibility"]["reasons"].append(
+            f"{crop.capitalize()} is a {natural}-season crop — planting in {actual_season} will likely fail or severely reduce yield"
+        )
+        if actual_yield < CROP_BASE_YIELDS.get(crop, 3000) * 0.3:
+            plan["feasibility"]["viable"] = False
+            plan["feasibility"]["severity"] = "critical"
 
     # Unified score
     plan["unified_score"] = _compute_unified_score(
