@@ -4,9 +4,12 @@
 Hackathon project for **Pune Agriculture Hackathon 2026** — India's first international agriculture hackathon.
 Hosted at Agricultural College, Pune. Prizes: 1st place ₹25 lakh, runner-up ₹15 lakh.
 
-## Status: MVP FEATURE-COMPLETE — POLISH & SUBMISSION PREP
+## Status: FEATURE-COMPLETE — SUBMISSION READY
 Theme 7: **Climate Resilient Digital Agriculture**
-Project: **KrishiTwin** — Holographic Farm Digital Twin
+Project: **KrishiDisha** — New Direction to Smart Agriculture
+Team: **DISHA** (दिशा)
+
+**For full project context, architecture, and technical decisions, see: `docs/PROJECT_CONTEXT.md`**
 
 ### What's Built
 - **Backend** (`backend/`): FastAPI with NASA POWER weather, SoilGrids soil (cached Pune fallback), WOFOST crop simulation (13 crops), what-if scenarios, OzoneSight ozone analysis, advisory stub

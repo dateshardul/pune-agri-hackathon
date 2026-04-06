@@ -1,185 +1,96 @@
-# KrishiTwin — Digital Twin Farm Resilience Simulator
+# KrishiDisha — New Direction to Smart Agriculture
 
-> **Pune Agriculture Hackathon 2026** | Theme 7: Climate Resilient Digital Agriculture
+> **Team DISHA** | Pune Agriculture Hackathon 2026 | Theme 7: Climate Resilient Digital Agriculture
+
+## What is KrishiDisha?
+
+A multi-model farm digital twin platform that combines **3 crop simulation engines**, **7 real-time data sources**, **3D terrain visualization**, and **ML ensemble prediction** to give Indian farmers a complete farming plan — from land preparation to post-harvest.
 
 ## The Problem
 
-```mermaid
-graph TD
-    subgraph "India's Agricultural Convergence Crisis (2026-2029)"
-        A["💧 Groundwater Collapse<br/>17% aquifers over-exploited<br/>60% critical by 2032"]
-        B["🌡️ Heat Stress<br/>10-15% wheat yield loss<br/>in 3 of last 5 years"]
-        C["🌱 Soil Carbon Collapse<br/>50%+ soils below 0.5% SOC<br/>30% below survival threshold"]
-        D["🌫️ Invisible Ozone Damage<br/>₹25,000-40,000 Cr/yr losses<br/>Zero farmer awareness"]
-        E["🐛 Fall Armyworm<br/>Endemic on maize<br/>Host-switching to rice"]
-        F["🐝 Pollinator Decline<br/>20-30% bee population drop<br/>Mustard, apple, coffee hit"]
-    end
+- 70% of Indian farmers lack weather-based crop guidance
+- $923M annual wheat losses from ground-level ozone — zero tools address this
+- Groundwater depleting 0.3m/year — farmers don't know when to switch crops
+- No platform combines yield prediction + water management + nutrient planning + climate risk
 
-    A -->|"No water buffer<br/>during heat waves"| B
-    B -->|"Stressed plants<br/>more vulnerable"| E
-    C -->|"Soil can't hold<br/>remaining water"| A
-    D -->|"Invisible 5-15%<br/>yield reduction"| C
-    F -->|"25-40% less<br/>mustard yield"| D
+## Our Solution
 
-    style A fill:#dc2626,color:#fff
-    style B fill:#ea580c,color:#fff
-    style C fill:#ca8a04,color:#fff
-    style D fill:#7c3aed,color:#fff
-    style E fill:#059669,color:#fff
-    style F fill:#2563eb,color:#fff
-```
+### 3 Crop Simulation Engines (running in parallel)
 
-**No existing tool models this convergence.** KrishiTwin is the first.
+| Engine | Developer | What it does | Crops |
+|--------|-----------|-------------|-------|
+| **WOFOST 7.2** | Wageningen | Physics-based yield prediction, daily growth curves | 13 |
+| **AquaCrop** | FAO | Water productivity, irrigation scheduling, drought analysis | 8 |
+| **DSSAT-CSM v4.8** | IFDC/UF | Nutrient management, N/P/K fertilizer optimization | 9 |
 
-## How It Works
+### 7 Real-Time Data Sources
 
-```mermaid
-graph LR
-    subgraph "INPUT"
-        GPS["📍 GPS Location"]
-    end
+NASA POWER (weather), Copernicus ERA5 (climate reanalysis), SoilGrids v2.0 (soil), Copernicus GLO-30 DEM (30m terrain), ESA WorldCover (10m land cover), CGWB/GRACE-FO (groundwater), Open-Meteo (7-day forecast)
 
-    subgraph "AUTO-PULL DATA (all free)"
-        S["🛰️ Sentinel-2<br/>Satellite Imagery"]
-        SO["🌍 SoilGrids<br/>Soil Properties"]
-        W["⛅ NASA POWER<br/>Weather Data"]
-        GW["💧 CGWB<br/>Groundwater Levels"]
-        OZ["🌫️ Sentinel-5P<br/>Ozone / Air Quality"]
-    end
+### Key Innovations
 
-    subgraph "SIMULATE"
-        DT["🖥️ Digital Twin<br/>DSSAT/WOFOST<br/>Crop Models"]
-    end
+- **OzoneSight**: First platform tracking crop damage from ground-level ozone
+- **3-Model Ensemble**: Nobody combines WOFOST + AquaCrop + DSSAT in one platform
+- **Elevation-based crop zone planning** on real 30m 3D terrain
+- **Season mismatch detection**: Warns if planting wrong crop in wrong season
+- **Pest/disease risk** from DSSAT stress indicators + weather-based rules
 
-    subgraph "OUTPUT"
-        D1["📊 Farm Health<br/>Dashboard"]
-        D2["🔮 What-If<br/>Scenario Explorer"]
-        D3["💧 Groundwater<br/>Depletion Timeline"]
-        D4["🌫️ OzoneSight™<br/>Invisible Loss Tracker"]
-        D5["🗣️ Advisory in<br/>Hindi / Marathi"]
-    end
+## User Flow
 
-    GPS --> S & SO & W & GW & OZ
-    S & SO & W & GW & OZ --> DT
-    DT --> D1 & D2 & D3 & D4 & D5
-
-    style GPS fill:#2563eb,color:#fff
-    style DT fill:#7c3aed,color:#fff
-    style D4 fill:#dc2626,color:#fff
-```
-
-### What-If Scenarios
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  "What if February hits 38°C?"        →  Wheat yield: -12%  │
-│  "What if El Niño cuts monsoon 15%?"  →  Rice yield: -18%   │
-│  "Switch sugarcane → pomegranate?"    →  Water saved: 2100mm │
-│  "Your well runs dry in..."          →  ⚠️  4.2 years       │
-│  "Ozone is silently costing you..."  →  ₹8,400/acre/year    │
-└─────────────────────────────────────────────────────────────┘
-```
+1. Input farm location + area
+2. Auto-analyze terrain, weather, soil, groundwater, ozone, land cover
+3. AI recommends crops ranked by suitability
+4. Run 3 models in parallel (18 seconds for 3 crops)
+5. Get complete farming plan: sowing dates, irrigation, fertilizer, pest risk, activity timeline
 
 ## Tech Stack
 
-```mermaid
-graph TB
-    subgraph "Frontend"
-        R["⚛️ React"] --> V["📊 Interactive<br/>Visualizations"]
-        R --> T["🗺️ Three.js / Deck.gl<br/>3D Farm Rendering"]
-    end
+**Backend**: Python/FastAPI, PCSE, aquacrop, DSSATTools, scikit-learn, rasterio, cdsapi
+**Frontend**: React 19/TypeScript/Vite, holographic-core 3D engine, Three.js
+**APIs**: NASA POWER, ERA5, SoilGrids, Copernicus DEM, ESA WorldCover, CGWB, Open-Meteo
 
-    subgraph "Backend"
-        F["⚡ FastAPI<br/>(Python)"]
-    end
+## Running Locally
 
-    subgraph "AI Layer"
-        C["🤖 Claude API<br/>Hindi/Marathi Advisory"]
-        CS["🌾 DSSAT/WOFOST<br/>Crop Simulation"]
-    end
+```bash
+# Backend
+cd backend && source venv/bin/activate && uvicorn app.main:app --reload --port 8001
 
-    subgraph "Data Sources (all FREE)"
-        S2["🛰️ Sentinel-2"]
-        S5["🌫️ Sentinel-5P"]
-        NP["⛅ NASA POWER"]
-        SG["🌍 SoilGrids"]
-        CG["💧 CGWB"]
-        CP["🏭 CPCB AQI"]
-    end
-
-    R <--> F
-    F <--> C & CS
-    F <--> S2 & S5 & NP & SG & CG & CP
-
-    style F fill:#059669,color:#fff
-    style C fill:#7c3aed,color:#fff
+# Frontend
+cd frontend && npm run dev
 ```
 
-## Judging Criteria
+## API Endpoints
 
-```mermaid
-quadrantChart
-    title How KrishiTwin Scores
-    x-axis "Low Feasibility" --> "High Feasibility"
-    y-axis "Low Innovation" --> "High Innovation"
-    quadrant-1 "Sweet Spot"
-    quadrant-2 "Risky Bets"
-    quadrant-3 "Avoid"
-    quadrant-4 "Incremental"
-    "KrishiTwin": [0.85, 0.9]
-    "Basic Disease Detection": [0.8, 0.2]
-    "Quantum-only Approach": [0.2, 0.95]
-    "Mandi Price App": [0.9, 0.1]
-    "Hardware Robot": [0.15, 0.7]
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/farm/analyze` | Unified multi-crop farm analysis |
+| POST | `/api/simulate/` | WOFOST crop simulation |
+| POST | `/api/simulate/water-advisory` | AquaCrop irrigation advisory |
+| POST | `/api/simulate/nutrient-advisory` | DSSAT fertilizer advisory |
+| POST | `/api/simulate/smart-advisory` | Smart model router |
+| POST | `/api/simulate/sowing-optimizer` | Sowing period optimizer |
+| POST | `/api/predict/` | ML yield prediction |
+| GET | `/api/data/weather` | NASA POWER weather |
+| GET | `/api/data/era5` | ERA5 reanalysis |
+| GET | `/api/data/soil` | SoilGrids soil |
+| GET | `/api/data/forecast` | 7-day forecast |
+| GET | `/api/data/landcover` | ESA WorldCover |
+| GET | `/api/elevation/dem` | Copernicus 30m DEM |
+| GET | `/api/groundwater/` | Groundwater analysis |
+| GET | `/api/ozone/` | Ozone analysis |
+| POST | `/api/advisory/chat` | AI farm advisory |
 
-| Criteria | Score | Why |
-|:---------|:-----:|:----|
-| Innovativeness | **10/10** | First Indian farm digital twin + ozone tracking |
-| Feasibility | **9/10** | All free/open data, proven crop models |
-| Technology | **10/10** | Digital twin + satellite + crop sim + LLM |
-| Scalability | **9/10** | Any GPS in India, SaaS-ready |
+## Competitive Landscape
 
-## Timeline
-
-```mermaid
-gantt
-    title Development Roadmap
-    dateFormat YYYY-MM-DD
-    axisFormat %b %d
-
-    section Phase 1: MVP
-    Data pipeline (satellite, soil, weather)    :a1, 2026-03-15, 3d
-    Crop simulation engine                      :a2, after a1, 4d
-    Frontend dashboard                          :a3, after a1, 5d
-    OzoneSight module                           :a4, after a2, 2d
-    LLM advisory (Hindi/Marathi)                :a5, after a2, 2d
-    Demo video + application                    :a6, after a4, 3d
-    Application deadline                        :milestone, 2026-03-31, 0d
-
-    section Phase 2: Finals (if shortlisted)
-    Mobile optimization (TFLite/ONNX)           :b1, 2026-04-30, 5d
-    Maharashtra crops (sugarcane, soybean)       :b2, after b1, 4d
-    Mobile app (React Native)                   :b3, after b1, 7d
-    Pitch deck + rehearsal                      :b4, 2026-05-10, 5d
-    Finals at Pune                              :milestone, 2026-05-15, 0d
-```
+| Feature | KrishiDisha | CropIn | Fasal | BharatAgri |
+|---------|------------|--------|-------|------------|
+| Yield Simulation | WOFOST + ML | No | No | No |
+| Water Optimization | AquaCrop (FAO) | No | IoT sensors | No |
+| Nutrient Planning | DSSAT | No | No | No |
+| Ozone Tracking | OzoneSight | No | No | No |
+| 3D Terrain | Real 30m DEM | No | No | No |
+| No Hardware Needed | Yes | Yes | No (IoT) | Yes |
 
 ## Team
 
-| Role | Person | Skills |
-|:-----|:-------|:-------|
-| Project Lead / System Architecture | **Shardul** (IIT, Mech) | Simulation, modeling, product design |
-| ML + Backend | *Seeking CS/AI student* | Python, ML, APIs |
-| Frontend | *Seeking CS student* | React, visualization |
-| Domain Expert | *Seeking Ag/Bio student* | Crop science, validation |
-
-## Project Status: `THEME SELECTED → BUILDING MVP`
-
-```
-[████████░░░░░░░░░░░░] 15% — Architecture finalized, research complete
-```
-
----
-
-*Built for [Pune Agriculture Hackathon 2026](https://example.com) — India's first international agriculture hackathon*
+**Team DISHA** (दिशा — "direction") | Pune Agriculture Hackathon 2026
