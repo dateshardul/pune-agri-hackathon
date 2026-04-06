@@ -1331,17 +1331,23 @@ export default function FarmAnalysis() {
 
           <div style={{ margin: '1.25rem 0' }}>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.75rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                Latitude: <input type="number" step="any" value={lat} onChange={e => setLat(parseFloat(e.target.value) || 0)}
-                  style={{ width: 90, padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(0,204,102,0.2)', background: 'rgba(17,31,23,0.8)', color: '#e8f5ee' }} />
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                Longitude: <input type="number" step="any" value={lon} onChange={e => setLon(parseFloat(e.target.value) || 0)}
-                  style={{ width: 90, padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(0,204,102,0.2)', background: 'rgba(17,31,23,0.8)', color: '#e8f5ee' }} />
-              </label>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  Latitude: <input type="number" step="any" value={lat} onChange={e => handleLatChange(parseFloat(e.target.value) || 0)}
+                    style={{ width: 90, padding: '6px 8px', borderRadius: 6, border: `1px solid ${latError ? '#ff5252' : 'rgba(0,204,102,0.2)'}`, background: 'rgba(17,31,23,0.8)', color: '#e8f5ee' }} />
+                </label>
+                {latError && <div style={{ fontSize: '0.7rem', color: '#ff5252', marginTop: 2 }}>{latError}</div>}
+              </div>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  Longitude: <input type="number" step="any" value={lon} onChange={e => handleLonChange(parseFloat(e.target.value) || 0)}
+                    style={{ width: 90, padding: '6px 8px', borderRadius: 6, border: `1px solid ${lonError ? '#ff5252' : 'rgba(0,204,102,0.2)'}`, background: 'rgba(17,31,23,0.8)', color: '#e8f5ee' }} />
+                </label>
+                {lonError && <div style={{ fontSize: '0.7rem', color: '#ff5252', marginTop: 2 }}>{lonError}</div>}
+              </div>
               <div style={{ display: 'flex', gap: '0.4rem' }}>
                 {PRESETS.map(p => (
-                  <button key={p.name} onClick={() => { setLat(p.lat); setLon(p.lon); }}
+                  <button key={p.name} onClick={() => { setLat(p.lat); setLon(p.lon); setLatError(''); setLonError(''); }}
                     style={{
                       background: activePreset?.name === p.name ? 'rgba(0,204,102,0.25)' : 'rgba(0,204,102,0.08)',
                       color: activePreset?.name === p.name ? '#00cc66' : '#7ab898',
@@ -1358,10 +1364,12 @@ export default function FarmAnalysis() {
             </label>
           </div>
 
-          <button onClick={analyzeEnvironment} style={{
-            background: 'linear-gradient(135deg, rgba(0,204,102,0.2), rgba(0,204,102,0.1))', color: '#00cc66', border: '1px solid rgba(0,204,102,0.3)',
+          <button onClick={analyzeEnvironment} disabled={!!latError || !!lonError} style={{
+            background: (latError || lonError) ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, rgba(0,204,102,0.2), rgba(0,204,102,0.1))',
+            color: (latError || lonError) ? '#3d6b52' : '#00cc66', border: '1px solid rgba(0,204,102,0.3)',
             borderRadius: 10, padding: '14px 36px', fontSize: '1.1rem', fontWeight: 700,
-            cursor: 'pointer', width: '100%', boxShadow: '0 0 20px rgba(0,204,102,0.15)',
+            cursor: (latError || lonError) ? 'not-allowed' : 'pointer', width: '100%',
+            boxShadow: (latError || lonError) ? 'none' : '0 0 20px rgba(0,204,102,0.15)',
           }}>
             Analyze My Land
           </button>
