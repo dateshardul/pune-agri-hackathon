@@ -19,7 +19,7 @@ function HelpTip({ text }: { text: string }) {
       <span style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         width: 16, height: 16, borderRadius: '50%',
-        background: '#e0e0e0', color: '#666',
+        background: 'rgba(0,204,102,0.15)', color: '#7ab898',
         fontSize: '0.6rem', fontWeight: 700, cursor: 'help',
       }}>?</span>
       {show && (
@@ -60,12 +60,12 @@ class ResultsErrorBoundary extends Component<{ children: ReactNode; onReset: () 
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: '2rem', background: '#ffebee', borderRadius: 10, margin: '1rem 0' }}>
-          <h3 style={{ color: '#c62828', marginTop: 0 }}>Results display error</h3>
-          <p style={{ color: '#555' }}>{this.state.error.message}</p>
-          <pre style={{ fontSize: '0.75rem', color: '#888', overflow: 'auto', maxHeight: 200 }}>{this.state.error.stack}</pre>
+        <div style={{ padding: '2rem', background: 'rgba(255,82,82,0.1)', border: '1px solid rgba(255,82,82,0.3)', borderRadius: 10, margin: '1rem 0' }}>
+          <h3 style={{ color: '#ff5252', marginTop: 0 }}>Results display error</h3>
+          <p style={{ color: '#7ab898' }}>{this.state.error.message}</p>
+          <pre style={{ fontSize: '0.75rem', color: '#3d6b52', overflow: 'auto', maxHeight: 200 }}>{this.state.error.stack}</pre>
           <button onClick={() => { this.setState({ error: null }); this.props.onReset(); }}
-            style={{ padding: '8px 20px', background: '#c62828', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', marginTop: '0.5rem' }}>
+            style={{ padding: '8px 20px', background: 'rgba(255,82,82,0.2)', color: '#ff5252', border: '1px solid rgba(255,82,82,0.3)', borderRadius: 6, cursor: 'pointer', marginTop: '0.5rem' }}>
             Start Over
           </button>
         </div>
@@ -88,27 +88,28 @@ const PRESETS: LocationPreset[] = [
 // ── Styling ──────────────────────────────────────────────────────────
 
 const cardStyle: React.CSSProperties = {
-  background: '#fff', padding: '1rem', borderRadius: '8px',
-  textAlign: 'center', border: '1px solid #eee',
+  background: 'rgba(17, 31, 23, 0.6)', padding: '1rem', borderRadius: '8px',
+  textAlign: 'center', border: '1px solid rgba(0, 204, 102, 0.12)',
+  backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
 };
 
 const modelColors: Record<string, { bg: string; color: string; label: string }> = {
-  WOFOST:   { bg: '#e3f2fd', color: '#1565c0', label: 'WOFOST' },
-  AquaCrop: { bg: '#e0f2f1', color: '#00695c', label: 'AquaCrop (FAO)' },
-  DSSAT:    { bg: '#fff3e0', color: '#ef6c00', label: 'DSSAT' },
+  WOFOST:   { bg: 'rgba(79, 195, 247, 0.15)', color: '#4fc3f7', label: 'WOFOST' },
+  AquaCrop: { bg: 'rgba(0, 204, 102, 0.15)', color: '#00cc66', label: 'AquaCrop (FAO)' },
+  DSSAT:    { bg: 'rgba(255, 183, 77, 0.15)', color: '#ffb74d', label: 'DSSAT' },
 };
 
 const priorityColors: Record<string, { bg: string; color: string }> = {
-  critical:    { bg: '#ffebee', color: '#c62828' },
-  recommended: { bg: '#fff8e1', color: '#f57f17' },
-  optional:    { bg: '#e8f5e9', color: '#2e7d32' },
+  critical:    { bg: 'rgba(255, 82, 82, 0.15)', color: '#ff5252' },
+  recommended: { bg: 'rgba(255, 183, 77, 0.15)', color: '#ffb74d' },
+  optional:    { bg: 'rgba(0, 204, 102, 0.15)', color: '#00cc66' },
 };
 
 const severityStyles: Record<string, { border: string; bg: string; color: string }> = {
-  ok:         { border: '#4caf50', bg: '#e8f5e9', color: '#1b5e20' },
-  warning:    { border: '#ff9800', bg: '#fff8e1', color: '#e65100' },
-  critical:   { border: '#f44336', bg: '#ffebee', color: '#b71c1c' },
-  impossible: { border: '#b71c1c', bg: '#ffcdd2', color: '#b71c1c' },
+  ok:         { border: '#00cc66', bg: 'rgba(0, 204, 102, 0.1)', color: '#00cc66' },
+  warning:    { border: '#ffb74d', bg: 'rgba(255, 183, 77, 0.1)', color: '#ffb74d' },
+  critical:   { border: '#ff5252', bg: 'rgba(255, 82, 82, 0.1)', color: '#ff5252' },
+  impossible: { border: '#ff5252', bg: 'rgba(255, 82, 82, 0.15)', color: '#ff5252' },
 };
 
 function ModelBadge({ model }: { model: string }) {
@@ -130,17 +131,17 @@ interface PipelineStep { label: string; detail: string; status: StepStatus; }
 
 const checkCircle: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-  width: 22, height: 22, borderRadius: '50%', background: '#2e7d32',
-  color: '#fff', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0,
+  width: 22, height: 22, borderRadius: '50%', background: '#00cc66',
+  color: '#0a1a0f', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0,
 };
 const spinnerStyle: React.CSSProperties = {
   display: 'inline-block', width: 20, height: 20, borderRadius: '50%',
-  border: '2.5px solid #c8e6c9', borderTopColor: '#2e7d32',
+  border: '2.5px solid rgba(0,204,102,0.2)', borderTopColor: '#00cc66',
   animation: 'farm-spin 0.7s linear infinite', flexShrink: 0,
 };
 const pendingCircle: React.CSSProperties = {
   display: 'inline-block', width: 20, height: 20, borderRadius: '50%',
-  border: '2px solid #e0e0e0', flexShrink: 0,
+  border: '2px solid #3d6b52', flexShrink: 0,
 };
 
 function StepIcon({ status }: { status: StepStatus }) {
@@ -151,10 +152,10 @@ function StepIcon({ status }: { status: StepStatus }) {
 
 function ProgressBar({ pct }: { pct: number }) {
   return (
-    <div style={{ height: 8, background: '#e0e0e0', borderRadius: 4, overflow: 'hidden', width: '100%', marginTop: 8 }}>
+    <div style={{ height: 8, background: 'rgba(0,204,102,0.1)', borderRadius: 4, overflow: 'hidden', width: '100%', marginTop: 8 }}>
       <div style={{
         height: '100%', borderRadius: 4,
-        background: 'linear-gradient(90deg, #43a047, #66bb6a)',
+        background: 'linear-gradient(90deg, #00cc66, #4fc3f7)',
         width: `${pct}%`, transition: 'width 0.5s ease',
       }} />
     </div>
@@ -167,10 +168,10 @@ function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
   const r = (size - 8) / 2;
   const c = 2 * Math.PI * r;
   const pct = Math.max(0, Math.min(100, score));
-  const color = pct >= 70 ? '#2e7d32' : pct >= 40 ? '#f57f17' : '#c62828';
+  const color = pct >= 70 ? '#00cc66' : pct >= 40 ? '#ffb74d' : '#ff5252';
   return (
     <svg width={size} height={size} style={{ display: 'block' }}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e0e0e0" strokeWidth={6} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(0,204,102,0.12)" strokeWidth={6} />
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={6}
         strokeDasharray={`${(pct / 100) * c} ${c}`} strokeLinecap="round"
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
@@ -309,9 +310,9 @@ function PlantingTimeline({ events, cropPlans, highlightedCrop, onCropClick }: {
   return (
     <div style={{ overflowX: 'auto' }}>
       {/* Month headers */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #e0e0e0', marginBottom: 6 }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid rgba(0,204,102,0.12)', marginBottom: 6 }}>
         {MONTHS.map(m => (
-          <div key={m} style={{ flex: '0 0 calc(100%/12)', fontSize: '0.68rem', color: '#888', textAlign: 'center', padding: '3px 0' }}>{m}</div>
+          <div key={m} style={{ flex: '0 0 calc(100%/12)', fontSize: '0.68rem', color: '#7ab898', textAlign: 'center', padding: '3px 0' }}>{m}</div>
         ))}
       </div>
 
@@ -324,7 +325,7 @@ function PlantingTimeline({ events, cropPlans, highlightedCrop, onCropClick }: {
         return (
           <div key={bar.crop} style={{ marginBottom: 6 }}>
             {/* Crop label */}
-            <div style={{ fontSize: '0.7rem', fontWeight: 600, color: isDimmed ? '#ccc' : '#555', textTransform: 'capitalize', marginBottom: 2, paddingLeft: `${(bar.startMonth / 12) * 100}%` }}>
+            <div style={{ fontSize: '0.7rem', fontWeight: 600, color: isDimmed ? '#3d6b52' : '#e8f5ee', textTransform: 'capitalize', marginBottom: 2, paddingLeft: `${(bar.startMonth / 12) * 100}%` }}>
               {bar.crop}
             </div>
 
@@ -392,7 +393,7 @@ function PlantingTimeline({ events, cropPlans, highlightedCrop, onCropClick }: {
                             width: nodeSize, height: nodeSize,
                             borderRadius: '50%',
                             border: `2px solid ${color}`,
-                            background: '#fff',
+                            background: '#0a1a0f',
                             transform: 'translateX(-50%)',
                           }} />
                           {/* End node */}
@@ -403,7 +404,7 @@ function PlantingTimeline({ events, cropPlans, highlightedCrop, onCropClick }: {
                             width: nodeSize, height: nodeSize,
                             borderRadius: '50%',
                             border: `2px solid ${color}`,
-                            background: '#fff',
+                            background: '#0a1a0f',
                             transform: 'translateX(-50%)',
                           }} />
                           {/* Label */}
@@ -412,7 +413,7 @@ function PlantingTimeline({ events, cropPlans, highlightedCrop, onCropClick }: {
                             left: `${endPct + 0.5}%`,
                             top: 1,
                             fontSize: '0.58rem',
-                            color: '#777',
+                            color: '#7ab898',
                             whiteSpace: 'nowrap',
                           }}>
                             {label}{dateLabel ? ` (${dateLabel})` : ''}
@@ -433,7 +434,7 @@ function PlantingTimeline({ events, cropPlans, highlightedCrop, onCropClick }: {
                     width: `${(span / 12) * 100}%`,
                     height: '100%', borderRadius: 4,
                     background: bar.color, opacity: 0.9,
-                    border: '2px solid #333',
+                    border: '2px solid #00cc66',
                   }} />
                 </div>
               )}
@@ -444,9 +445,9 @@ function PlantingTimeline({ events, cropPlans, highlightedCrop, onCropClick }: {
 
       {/* Legend when a crop is selected */}
       {highlightedCrop && (
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: 6, paddingTop: 6, borderTop: '1px solid #eee' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(0,204,102,0.12)' }}>
           {Object.entries(PHASE_COLORS).map(([cat, color]) => (
-            <span key={cat} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: '0.6rem', color: '#666' }}>
+            <span key={cat} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: '0.6rem', color: '#7ab898' }}>
               <span style={{ width: 10, height: 10, borderRadius: 2, background: color, display: 'inline-block' }} />
               {cat.replace(/_/g, ' ')}
             </span>
@@ -481,13 +482,13 @@ function HazardCalendar({ weeks }: { weeks: HazardWeek[] }) {
         ))}
       </div>
       {hoveredWeek !== null && (
-        <div style={{ fontSize: '0.78rem', color: '#555', marginTop: 4 }}>
+        <div style={{ fontSize: '0.78rem', color: '#7ab898', marginTop: 4 }}>
           Week {hoveredWeek}: {weeks.find(w => w.week === hoveredWeek)?.note ?? ''}
         </div>
       )}
       <div style={{ display: 'flex', gap: '0.75rem', marginTop: 4 }}>
         {(['low', 'moderate', 'high'] as const).map(r => (
-          <span key={r} style={{ fontSize: '0.65rem', color: '#666', display: 'flex', alignItems: 'center', gap: 3 }}>
+          <span key={r} style={{ fontSize: '0.65rem', color: '#7ab898', display: 'flex', alignItems: 'center', gap: 3 }}>
             <span style={{ width: 8, height: 8, borderRadius: 2, background: hazardColors[r], display: 'inline-block' }} />
             {r}
           </span>
@@ -500,9 +501,9 @@ function HazardCalendar({ weeks }: { weeks: HazardWeek[] }) {
 // ── Pest & Disease Risk ─────────────────────────────────────────────
 
 const pestRiskColors: Record<string, { bg: string; color: string }> = {
-  low: { bg: '#e8f5e9', color: '#2e7d32' },
-  moderate: { bg: '#fff8e1', color: '#f57f17' },
-  high: { bg: '#ffebee', color: '#c62828' },
+  low: { bg: 'rgba(0, 204, 102, 0.15)', color: '#00cc66' },
+  moderate: { bg: 'rgba(255, 183, 77, 0.15)', color: '#ffb74d' },
+  high: { bg: 'rgba(255, 82, 82, 0.15)', color: '#ff5252' },
 };
 
 function PestRiskSection({ pestRisk }: { pestRisk: PestRisk }) {
@@ -525,13 +526,13 @@ function PestRiskSection({ pestRisk }: { pestRisk: PestRisk }) {
                 <td><strong>{p.name}</strong></td>
                 <td><span style={{ padding: '2px 8px', borderRadius: 10, fontSize: '0.75rem', fontWeight: 600, background: rc.bg, color: rc.color, textTransform: 'capitalize' }}>{p.risk}</span></td>
                 <td style={{ fontSize: '0.85rem' }}>{p.peak_period}</td>
-                <td style={{ fontSize: '0.85rem', color: '#555' }}>{p.mitigation}</td>
+                <td style={{ fontSize: '0.85rem', color: '#7ab898' }}>{p.mitigation}</td>
               </tr>
             );
           })}</tbody></table>
       )}
       {pestRisk.stress_vulnerability && (
-        <div style={{ marginTop: 8, fontSize: '0.82rem', color: '#555', background: '#f5f5f5', padding: '0.5rem 0.75rem', borderRadius: 6 }}>
+        <div style={{ marginTop: 8, fontSize: '0.82rem', color: '#7ab898', background: 'rgba(17, 31, 23, 0.6)', padding: '0.5rem 0.75rem', borderRadius: 6 }}>
           <span style={{ fontWeight: 600 }}>Stress vulnerability: </span>
           Water {pestRisk.stress_vulnerability.water_stress}/10 · Nutrient {pestRisk.stress_vulnerability.nutrient_stress}/10
           {pestRisk.stress_vulnerability.note && <span> — {pestRisk.stress_vulnerability.note}</span>}
@@ -545,15 +546,15 @@ function PestRiskSection({ pestRisk }: { pestRisk: PestRisk }) {
 
 // Farming phases — earth-tone sequential palette (warm→cool progression)
 const PHASES: { key: string; label: string; icon: string; color: string; bg: string }[] = [
-  { key: 'land_prep',       label: 'Land Preparation',  icon: '🔨', color: '#6d4c41', bg: '#efebe9' },
-  { key: 'sowing',          label: 'Sowing',             icon: '🌱', color: '#33691e', bg: '#f1f8e9' },
-  { key: 'irrigation',      label: 'Irrigation',         icon: '💧', color: '#0277bd', bg: '#e1f5fe' },
-  { key: 'fertilizer',      label: 'Fertilizer',         icon: '🧪', color: '#e65100', bg: '#fff3e0' },
-  { key: 'weeding',         label: 'Weeding & Care',     icon: '🌿', color: '#558b2f', bg: '#f1f8e9' },
-  { key: 'monitoring',      label: 'Crop Monitoring',    icon: '👁', color: '#00695c', bg: '#e0f2f1' },
-  { key: 'pest_management', label: 'Pest Management',    icon: '🐛', color: '#b71c1c', bg: '#ffebee' },
-  { key: 'harvest',         label: 'Harvest',            icon: '🌾', color: '#f9a825', bg: '#fffde7' },
-  { key: 'post_harvest',    label: 'Post-Harvest',       icon: '📦', color: '#37474f', bg: '#eceff1' },
+  { key: 'land_prep',       label: 'Land Preparation',  icon: '🔨', color: '#a1887f', bg: 'rgba(109, 76, 65, 0.15)' },
+  { key: 'sowing',          label: 'Sowing',             icon: '🌱', color: '#00cc66', bg: 'rgba(0, 204, 102, 0.1)' },
+  { key: 'irrigation',      label: 'Irrigation',         icon: '💧', color: '#4fc3f7', bg: 'rgba(79, 195, 247, 0.1)' },
+  { key: 'fertilizer',      label: 'Fertilizer',         icon: '🧪', color: '#ffb74d', bg: 'rgba(255, 183, 77, 0.1)' },
+  { key: 'weeding',         label: 'Weeding & Care',     icon: '🌿', color: '#81c784', bg: 'rgba(129, 199, 132, 0.1)' },
+  { key: 'monitoring',      label: 'Crop Monitoring',    icon: '👁', color: '#26a69a', bg: 'rgba(38, 166, 154, 0.1)' },
+  { key: 'pest_management', label: 'Pest Management',    icon: '🐛', color: '#ff5252', bg: 'rgba(255, 82, 82, 0.1)' },
+  { key: 'harvest',         label: 'Harvest',            icon: '🌾', color: '#d4a843', bg: 'rgba(212, 168, 67, 0.1)' },
+  { key: 'post_harvest',    label: 'Post-Harvest',       icon: '📦', color: '#78909c', bg: 'rgba(120, 144, 156, 0.1)' },
 ];
 
 function daysBetween(d1: string, d2: string): number {
@@ -587,8 +588,8 @@ function DetailedTimeline({ activities }: { activities: CropActivity[] }) {
           {totalDays > 0 && <span style={{ fontWeight: 400, fontSize: '0.78rem', color: '#888', marginLeft: 8 }}>({totalDays} days total)</span>}
         </h4>
         <button onClick={() => setShowAll(!showAll)} style={{
-          background: 'none', border: '1px solid #ccc', borderRadius: 4,
-          padding: '2px 10px', fontSize: '0.75rem', cursor: 'pointer', color: '#555',
+          background: 'none', border: '1px solid rgba(0,204,102,0.2)', borderRadius: 4,
+          padding: '2px 10px', fontSize: '0.75rem', cursor: 'pointer', color: '#7ab898',
         }}>
           {showAll ? 'Critical only' : 'All activities'}
         </button>
@@ -597,7 +598,7 @@ function DetailedTimeline({ activities }: { activities: CropActivity[] }) {
       {/* Vertical timeline */}
       <div style={{ position: 'relative', paddingLeft: 36 }}>
         {/* Rail line */}
-        <div style={{ position: 'absolute', left: 15, top: 0, bottom: 0, width: 2, background: '#e0e0e0' }} />
+        <div style={{ position: 'absolute', left: 15, top: 0, bottom: 0, width: 2, background: 'rgba(0,204,102,0.12)' }} />
 
         {activePhases.map((phase) => {
           const items = grouped[phase.key];
@@ -613,14 +614,14 @@ function DetailedTimeline({ activities }: { activities: CropActivity[] }) {
               <div style={{
                 position: 'absolute', left: -28, top: 9,
                 width: 22, height: 22, borderRadius: '50%',
-                background: phase.color, border: '3px solid #fff',
+                background: phase.color, border: '3px solid #0a1a0f',
                 boxShadow: `0 0 0 2px ${phase.color}40`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: '0.65rem',
               }}>{phase.icon}</div>
 
               {/* Phase card */}
-              <div style={{ borderRadius: 8, border: `1px solid ${phase.color}30`, overflow: 'hidden', background: '#fff' }}>
+              <div style={{ borderRadius: 8, border: `1px solid ${phase.color}30`, overflow: 'hidden', background: 'rgba(17, 31, 23, 0.6)' }}>
                 {/* Header */}
                 <button onClick={() => setExpandedPhase(isOpen ? null : phase.key)} style={{
                   width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem',
@@ -631,20 +632,20 @@ function DetailedTimeline({ activities }: { activities: CropActivity[] }) {
                   <span style={{ fontWeight: 700, fontSize: '0.85rem', color: phase.color, flex: 1 }}>
                     {phase.label}
                   </span>
-                  <span style={{ fontSize: '0.68rem', color: '#777', background: '#fff', padding: '1px 7px', borderRadius: 10, border: '1px solid #e0e0e0' }}>
+                  <span style={{ fontSize: '0.68rem', color: '#7ab898', background: 'rgba(17,31,23,0.8)', padding: '1px 7px', borderRadius: 10, border: '1px solid rgba(0,204,102,0.12)' }}>
                     {items.length} {items.length === 1 ? 'task' : 'tasks'}
                   </span>
                   {phaseDays > 0 && (
-                    <span style={{ fontSize: '0.68rem', color: '#777', background: '#fff', padding: '1px 7px', borderRadius: 10, border: '1px solid #e0e0e0' }}>
+                    <span style={{ fontSize: '0.68rem', color: '#7ab898', background: 'rgba(17,31,23,0.8)', padding: '1px 7px', borderRadius: 10, border: '1px solid rgba(0,204,102,0.12)' }}>
                       {phaseDays} days
                     </span>
                   )}
                   {critCount > 0 && (
-                    <span style={{ fontSize: '0.65rem', background: '#c62828', color: '#fff', padding: '1px 7px', borderRadius: 10, fontWeight: 600 }}>
+                    <span style={{ fontSize: '0.65rem', background: 'rgba(255,82,82,0.3)', color: '#ff5252', padding: '1px 7px', borderRadius: 10, fontWeight: 600 }}>
                       {critCount} critical
                     </span>
                   )}
-                  <span style={{ fontSize: '0.8rem', color: '#aaa', transition: 'transform 0.2s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                  <span style={{ fontSize: '0.8rem', color: '#3d6b52', transition: 'transform 0.2s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
                 </button>
 
                 {/* Activities */}
@@ -659,14 +660,14 @@ function DetailedTimeline({ activities }: { activities: CropActivity[] }) {
                         <div key={i} style={{
                           display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
                           padding: '7px 14px',
-                          background: i % 2 === 0 ? '#fff' : '#fafafa',
-                          borderTop: '1px solid #f0f0f0',
+                          background: i % 2 === 0 ? 'transparent' : 'rgba(17, 31, 23, 0.4)',
+                          borderTop: '1px solid rgba(0,204,102,0.06)',
                         }}>
                           {/* Date + duration */}
                           <div style={{ minWidth: 90, flexShrink: 0 }}>
-                            <div style={{ fontSize: '0.74rem', color: '#555', fontWeight: 500 }}>{fmtDate(a.date)}</div>
+                            <div style={{ fontSize: '0.74rem', color: '#7ab898', fontWeight: 500 }}>{fmtDate(a.date)}</div>
                             {gap > 0 && (
-                              <div style={{ fontSize: '0.62rem', color: '#aaa', marginTop: 1 }}>
+                              <div style={{ fontSize: '0.62rem', color: '#3d6b52', marginTop: 1 }}>
                                 +{gap} days to next
                               </div>
                             )}
@@ -675,22 +676,22 @@ function DetailedTimeline({ activities }: { activities: CropActivity[] }) {
                           {/* Priority indicator */}
                           <div style={{
                             width: 3, alignSelf: 'stretch', borderRadius: 2, flexShrink: 0,
-                            background: a.priority === 'critical' ? '#c62828' : a.priority === 'recommended' ? '#f57f17' : '#e0e0e0',
+                            background: a.priority === 'critical' ? '#ff5252' : a.priority === 'recommended' ? '#ffb74d' : '#3d6b52',
                           }} />
 
                           {/* Content */}
                           <div style={{ flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
-                              <span style={{ fontWeight: 600, fontSize: '0.82rem', color: '#333' }}>{a.activity}</span>
+                              <span style={{ fontWeight: 600, fontSize: '0.82rem', color: '#e8f5ee' }}>{a.activity}</span>
                               {a.priority === 'critical' && (
-                                <><span style={{ padding: '0 5px', borderRadius: 3, fontSize: '0.55rem', background: '#c62828', color: '#fff', fontWeight: 700 }}>CRITICAL</span>
+                                <><span style={{ padding: '0 5px', borderRadius: 3, fontSize: '0.55rem', background: 'rgba(255,82,82,0.3)', color: '#ff5252', fontWeight: 700 }}>CRITICAL</span>
                                 <HelpTip text={a.details || 'This step is essential for crop success'} /></>
                               )}
                               {a.priority === 'recommended' && (
-                                <span style={{ padding: '0 5px', borderRadius: 3, fontSize: '0.55rem', background: '#f57f17', color: '#fff', fontWeight: 700 }}>REC</span>
+                                <span style={{ padding: '0 5px', borderRadius: 3, fontSize: '0.55rem', background: 'rgba(255,183,77,0.3)', color: '#ffb74d', fontWeight: 700 }}>REC</span>
                               )}
                             </div>
-                            {a.details && <div style={{ fontSize: '0.73rem', color: '#666', marginTop: 2, lineHeight: 1.35 }}>{a.details}</div>}
+                            {a.details && <div style={{ fontSize: '0.73rem', color: '#7ab898', marginTop: 2, lineHeight: 1.35 }}>{a.details}</div>}
                           </div>
                         </div>
                       );
@@ -743,7 +744,7 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
         }}>
           {feasibility.viable ? 'Viable' : feasibility.severity}
         </span>
-        <span style={{ fontSize: '0.9rem', color: '#666' }}>{expanded ? '\u25B4' : '\u25BE'}</span>
+        <span style={{ fontSize: '0.9rem', color: '#7ab898' }}>{expanded ? '\u25B4' : '\u25BE'}</span>
       </button>
 
       {/* Infeasible banner */}
@@ -757,12 +758,12 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
           </ul>
           {feasibility.alternatives.length > 0 && (
             <div style={{ marginTop: 8 }}>
-              <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: 4 }}>Consider instead:</div>
+              <div style={{ fontSize: '0.8rem', color: '#7ab898', marginBottom: 4 }}>Consider instead:</div>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 {feasibility.alternatives.map(alt => (
                   <button key={alt.crop} onClick={() => onTryAlternative(alt.crop)} style={{
                     padding: '4px 14px', borderRadius: 16, fontSize: '0.8rem', cursor: 'pointer',
-                    background: '#e8f5e9', color: '#2e7d32', border: '1px solid #a5d6a7',
+                    background: 'rgba(0,204,102,0.1)', color: '#00cc66', border: '1px solid rgba(0,204,102,0.3)',
                   }}>
                     {alt.crop.charAt(0).toUpperCase() + alt.crop.slice(1)} — {alt.reason}
                   </button>
@@ -773,7 +774,7 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
           {feasibility.severity !== 'impossible' && (
             <button onClick={() => setExpanded(!expanded)} style={{
               marginTop: 8, padding: '4px 14px', borderRadius: 6, fontSize: '0.78rem',
-              background: 'transparent', color: '#999', border: '1px solid #ccc', cursor: 'pointer',
+              background: 'transparent', color: '#3d6b52', border: '1px solid rgba(0,204,102,0.15)', cursor: 'pointer',
             }}>
               {expanded ? 'Hide details' : 'Show details anyway (not recommended)'}
             </button>
@@ -783,31 +784,31 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
 
       {/* Expanded content */}
       {expanded && (
-        <div style={{ padding: '1rem', background: '#fff' }}>
+        <div style={{ padding: '1rem', background: 'rgba(17, 31, 23, 0.4)' }}>
           {/* Zone info */}
           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem', fontSize: '0.85rem' }}>
             <div>
-              <span style={{ color: '#666' }}>Zone: </span>
+              <span style={{ color: '#7ab898' }}>Zone: </span>
               <strong style={{ textTransform: 'capitalize' }}>{plan.zone?.type ?? 'field'}</strong>
-              {plan.zone?.elevation_range && <span style={{ color: '#999' }}> ({plan.zone.elevation_range[0]}–{plan.zone.elevation_range[1]}m)</span>}
+              {plan.zone?.elevation_range && <span style={{ color: '#3d6b52' }}> ({plan.zone.elevation_range[0]}–{plan.zone.elevation_range[1]}m)</span>}
             </div>
-            {plan.zone?.area_ha && <div><span style={{ color: '#666' }}>Area: </span><strong>{plan.zone.area_ha} ha</strong></div>}
-            {plan.zone?.reason && <div style={{ color: '#666', fontStyle: 'italic' }}>{plan.zone.reason}</div>}
+            {plan.zone?.area_ha && <div><span style={{ color: '#7ab898' }}>Area: </span><strong>{plan.zone.area_ha} ha</strong></div>}
+            {plan.zone?.reason && <div style={{ color: '#7ab898', fontStyle: 'italic' }}>{plan.zone.reason}</div>}
           </div>
 
           {/* Sowing card */}
           {plan.sowing?.optimal_period && (
             <div style={{
-              background: 'linear-gradient(135deg, #e8f5e9, #f1f8e9)', border: '2px solid #43a047',
+              background: 'linear-gradient(135deg, rgba(0,204,102,0.1), rgba(0,204,102,0.05))', border: '2px solid rgba(0,204,102,0.3)',
               borderRadius: 10, padding: '1rem', marginBottom: '1rem',
             }}>
-              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1b5e20' }}>
+              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#00cc66' }}>
                 {fmtDate(plan.sowing.optimal_period.start)} &ndash; {fmtDate(plan.sowing.optimal_period.end)}
               </div>
               <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginTop: '0.4rem' }}>
-                <div><div style={{ fontSize: '0.7rem', color: '#666' }}>Season</div><div style={{ fontWeight: 600 }}>{plan.sowing.season}</div></div>
-                <div><div style={{ fontSize: '0.7rem', color: '#666' }}>Expected Yield</div><div style={{ fontWeight: 600 }}>{(plan.sowing.optimal_period.expected_yield_kg_ha ?? 0).toLocaleString()} kg/ha</div></div>
-                <div><div style={{ fontSize: '0.7rem', color: '#666' }}>vs Standard</div><div style={{ fontWeight: 600, color: '#2e7d32' }}>{plan.sowing.optimal_period.vs_standard_pct ?? 'N/A'}</div></div>
+                <div><div style={{ fontSize: '0.7rem', color: '#7ab898' }}>Season</div><div style={{ fontWeight: 600 }}>{plan.sowing.season}</div></div>
+                <div><div style={{ fontSize: '0.7rem', color: '#7ab898' }}>Expected Yield</div><div style={{ fontWeight: 600 }}>{(plan.sowing.optimal_period.expected_yield_kg_ha ?? 0).toLocaleString()} kg/ha</div></div>
+                <div><div style={{ fontSize: '0.7rem', color: '#7ab898' }}>vs Standard</div><div style={{ fontWeight: 600, color: '#00cc66' }}>{plan.sowing.optimal_period.vs_standard_pct ?? 'N/A'}</div></div>
               </div>
             </div>
           )}
@@ -834,13 +835,13 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
                 <strong style={{ fontSize: '0.9rem' }}>Fertilizer Plan</strong><ModelBadge model="DSSAT" />
               </div>
               <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '0.5rem' }}>
-                {[{ l: 'N', v: Number(dssat.nitrogen_kg_ha ?? 0), c: '#1565c0' }, { l: 'P', v: Number(dssat.phosphorus_kg_ha ?? 0), c: '#e65100' }, { l: 'K', v: Number(dssat.potassium_kg_ha ?? 0), c: '#6a1b9a' }].map(n => (
-                  <div key={n.l} style={{ textAlign: 'center' }}><div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: n.c }}>{n.v}</div><div style={{ fontSize: '0.65rem', color: '#999' }}>{n.l} kg/ha</div></div>
+                {[{ l: 'N', v: Number(dssat.nitrogen_kg_ha ?? 0), c: '#4fc3f7' }, { l: 'P', v: Number(dssat.phosphorus_kg_ha ?? 0), c: '#ffb74d' }, { l: 'K', v: Number(dssat.potassium_kg_ha ?? 0), c: '#b39ddb' }].map(n => (
+                  <div key={n.l} style={{ textAlign: 'center' }}><div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: n.c }}>{n.v}</div><div style={{ fontSize: '0.65rem', color: '#3d6b52' }}>{n.l} kg/ha</div></div>
                 ))}
               </div>
               <table><thead><tr><th>When</th><th>Day</th><th>N</th><th>P</th><th>K</th><th>Product</th></tr></thead>
                 <tbody>{fertilizerApps.map((a: FertilizerApplication, i: number) => (
-                  <tr key={i}><td><strong>{a.timing}</strong></td><td>Day {a.day_after_sowing}</td><td>{a.n_kg}</td><td>{a.p_kg}</td><td>{a.k_kg}</td><td style={{ fontSize: '0.85rem', color: '#555' }}>{a.product_suggestion}</td></tr>
+                  <tr key={i}><td><strong>{a.timing}</strong></td><td>Day {a.day_after_sowing}</td><td>{a.n_kg}</td><td>{a.p_kg}</td><td>{a.k_kg}</td><td style={{ fontSize: '0.85rem', color: '#7ab898' }}>{a.product_suggestion}</td></tr>
                 ))}</tbody></table>
             </div>
           )}
@@ -854,8 +855,8 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
               <HazardCalendar weeks={plan.hazards.weekly_calendar} />
               {(plan.hazards.mitigations?.length ?? 0) > 0 && (
                 <div style={{ marginTop: 8 }}>
-                  <div style={{ fontSize: '0.78rem', color: '#666', fontWeight: 600, marginBottom: 2 }}>Mitigations:</div>
-                  <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.82rem', color: '#555' }}>
+                  <div style={{ fontSize: '0.78rem', color: '#7ab898', fontWeight: 600, marginBottom: 2 }}>Mitigations:</div>
+                  <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.82rem', color: '#7ab898' }}>
                     {plan.hazards.mitigations.map((m, i) => <li key={i}>{m}</li>)}
                   </ul>
                 </div>
@@ -870,7 +871,7 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
 
           {/* Detailed Activity Timeline */}
           {plan.detailed_timeline && plan.detailed_timeline.length > 0 && (
-            <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#fafafa', borderRadius: 8 }}>
+            <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: 'rgba(10, 26, 15, 0.4)', borderRadius: 8 }}>
               <DetailedTimeline activities={plan.detailed_timeline} />
             </div>
           )}
@@ -884,8 +885,8 @@ function CropAccordion({ plan, onTryAlternative }: { plan: CropPlan; onTryAltern
 
 function LandAnalysisCards({ land }: { land: LandAnalysis }) {
   const items = [
-    { label: 'Elevation', value: `${land.elevation.min}–${land.elevation.max}m`, sub: `mean ${land.elevation.mean}m`, tip: 'Height above sea level — affects temperature and crop suitability' },
-    { label: 'Slope', value: `${land.elevation.slope_pct}%`, sub: 'gradient', tip: 'How steep the land is — affects water drainage and erosion' },
+    { label: 'Elevation', value: `${Math.round(land.elevation.min)}–${Math.round(land.elevation.max)}m`, sub: `mean ${Math.round(land.elevation.mean)}m`, tip: 'Height above sea level — affects temperature and crop suitability' },
+    { label: 'Slope', value: `${Number(land.elevation.slope_pct).toFixed(1)}%`, sub: 'gradient', tip: 'How steep the land is — affects water drainage and erosion' },
     { label: 'Cropland', value: `${land.landcover.cropland_pct}%`, sub: 'usable for farming', tip: 'Percentage of land classified as agricultural by satellite (ESA WorldCover 10m)' },
     { label: 'Tree Cover', value: `${land.landcover.trees_pct}%`, sub: '', tip: 'Area covered by trees — cannot be used for crops without clearing' },
     { label: 'Sun Exposure', value: `${land.hillshade.sun_exposure_pct}%`, sub: `${land.hillshade.shaded_pct}% shaded`, tip: 'How much sunlight the field receives based on terrain shape and orientation' },
@@ -895,9 +896,9 @@ function LandAnalysisCards({ land }: { land: LandAnalysis }) {
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.6rem' }}>
       {items.map(it => (
         <div key={it.label} style={cardStyle}>
-          <div style={{ fontSize: '0.7rem', color: '#666' }}>{it.label}{it.tip && <HelpTip text={it.tip} />}</div>
+          <div style={{ fontSize: '0.7rem', color: '#7ab898' }}>{it.label}{it.tip && <HelpTip text={it.tip} />}</div>
           <div style={{ fontSize: '1.15rem', fontWeight: 700 }}>{it.value}</div>
-          {it.sub && <div style={{ fontSize: '0.68rem', color: '#999' }}>{it.sub}</div>}
+          {it.sub && <div style={{ fontSize: '0.68rem', color: '#3d6b52' }}>{it.sub}</div>}
         </div>
       ))}
     </div>
@@ -1013,6 +1014,17 @@ export default function FarmAnalysis() {
   // Step 1: Farm input
   const [lat, setLat] = useState(18.52);
   const [lon, setLon] = useState(73.85);
+  const [latError, setLatError] = useState('');
+  const [lonError, setLonError] = useState('');
+
+  const handleLatChange = (val: number) => {
+    setLat(val);
+    setLatError(val < -90 || val > 90 ? 'Latitude must be between -90 and 90' : '');
+  };
+  const handleLonChange = (val: number) => {
+    setLon(val);
+    setLonError(val < -180 || val > 180 ? 'Longitude must be between -180 and 180' : '');
+  };
   const [fieldArea, setFieldArea] = useState(2.5);
   const [crops, setCrops] = useState<Record<string, string>>({});
 
@@ -1321,19 +1333,19 @@ export default function FarmAnalysis() {
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.75rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 Latitude: <input type="number" step="any" value={lat} onChange={e => setLat(parseFloat(e.target.value) || 0)}
-                  style={{ width: 90, padding: '6px 8px', borderRadius: 6, border: '1px solid #ccc' }} />
+                  style={{ width: 90, padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(0,204,102,0.2)', background: 'rgba(17,31,23,0.8)', color: '#e8f5ee' }} />
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 Longitude: <input type="number" step="any" value={lon} onChange={e => setLon(parseFloat(e.target.value) || 0)}
-                  style={{ width: 90, padding: '6px 8px', borderRadius: 6, border: '1px solid #ccc' }} />
+                  style={{ width: 90, padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(0,204,102,0.2)', background: 'rgba(17,31,23,0.8)', color: '#e8f5ee' }} />
               </label>
               <div style={{ display: 'flex', gap: '0.4rem' }}>
                 {PRESETS.map(p => (
                   <button key={p.name} onClick={() => { setLat(p.lat); setLon(p.lon); }}
                     style={{
-                      background: activePreset?.name === p.name ? '#2e7d32' : '#e8f5e9',
-                      color: activePreset?.name === p.name ? '#fff' : '#2e7d32',
-                      border: '1px solid #a5d6a7', borderRadius: 16, padding: '4px 14px', fontSize: '0.82rem', cursor: 'pointer',
+                      background: activePreset?.name === p.name ? 'rgba(0,204,102,0.25)' : 'rgba(0,204,102,0.08)',
+                      color: activePreset?.name === p.name ? '#00cc66' : '#7ab898',
+                      border: `1px solid ${activePreset?.name === p.name ? 'rgba(0,204,102,0.5)' : 'rgba(0,204,102,0.15)'}`, borderRadius: 16, padding: '4px 14px', fontSize: '0.82rem', cursor: 'pointer',
                     }}>{p.name}</button>
                 ))}
               </div>
@@ -1341,15 +1353,15 @@ export default function FarmAnalysis() {
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               Field Area: <input type="number" step="0.1" min="0.1" value={fieldArea}
                 onChange={e => setFieldArea(parseFloat(e.target.value) || 0.1)}
-                style={{ width: 70, padding: '6px 8px', borderRadius: 6, border: '1px solid #ccc' }} />
-              <span style={{ color: '#666', fontSize: '0.85rem' }}>hectares</span>
+                style={{ width: 70, padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(0,204,102,0.2)', background: 'rgba(17,31,23,0.8)', color: '#e8f5ee' }} />
+              <span style={{ color: '#7ab898', fontSize: '0.85rem' }}>hectares</span>
             </label>
           </div>
 
           <button onClick={analyzeEnvironment} style={{
-            background: 'linear-gradient(135deg, #2e7d32, #43a047)', color: '#fff', border: 'none',
+            background: 'linear-gradient(135deg, rgba(0,204,102,0.2), rgba(0,204,102,0.1))', color: '#00cc66', border: '1px solid rgba(0,204,102,0.3)',
             borderRadius: 10, padding: '14px 36px', fontSize: '1.1rem', fontWeight: 700,
-            cursor: 'pointer', width: '100%', boxShadow: '0 4px 14px rgba(46,125,50,0.3)',
+            cursor: 'pointer', width: '100%', boxShadow: '0 0 20px rgba(0,204,102,0.15)',
           }}>
             Analyze My Land
           </button>
@@ -1362,7 +1374,7 @@ export default function FarmAnalysis() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
             <h2 style={{ margin: 0 }}>Analyzing your land...</h2>
             <button onClick={resetToInput} style={{
-              background: '#f5f5f5', color: '#555', border: '1px solid #ddd', borderRadius: 6,
+              background: 'rgba(17,31,23,0.6)', color: '#7ab898', border: '1px solid rgba(0,204,102,0.2)', borderRadius: 6,
               padding: '4px 12px', fontSize: '0.8rem', cursor: 'pointer',
             }}>&larr; Back</button>
           </div>
@@ -1372,7 +1384,7 @@ export default function FarmAnalysis() {
             <MapView lat={lat} lon={lon} simulationResult={null} />
           </div>
 
-          <div style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: 10, padding: '1.25rem' }}>
+          <div style={{ background: 'rgba(17,31,23,0.6)', border: '1px solid rgba(0,204,102,0.12)', borderRadius: 10, padding: '1.25rem', backdropFilter: 'blur(12px)' }}>
             {envSteps.map((step, i) => (
               <div key={i} style={{
                 display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.75rem',
@@ -1380,9 +1392,9 @@ export default function FarmAnalysis() {
               }}>
                 <StepIcon status={step.status} />
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: '0.88rem', color: step.status === 'pending' ? '#bbb' : '#333' }}>{step.label}</div>
+                  <div style={{ fontWeight: 600, fontSize: '0.88rem', color: step.status === 'pending' ? '#3d6b52' : '#e8f5ee' }}>{step.label}</div>
                   {step.detail && step.status === 'done' && (
-                    <div style={{ fontSize: '0.8rem', color: '#2e7d32', marginTop: 2 }}>{step.detail}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#00cc66', marginTop: 2 }}>{step.detail}</div>
                   )}
                 </div>
               </div>
@@ -1399,7 +1411,7 @@ export default function FarmAnalysis() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
               <h2 style={{ margin: 0 }}>Your Land Analysis</h2>
               <button onClick={resetToInput} style={{
-                background: '#f5f5f5', color: '#555', border: '1px solid #ddd', borderRadius: 6,
+                background: 'rgba(17,31,23,0.6)', color: '#7ab898', border: '1px solid rgba(0,204,102,0.2)', borderRadius: 6,
                 padding: '4px 12px', fontSize: '0.8rem', cursor: 'pointer',
               }}>&larr; Change Location</button>
             </div>
@@ -1413,47 +1425,51 @@ export default function FarmAnalysis() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.6rem', marginBottom: '1rem' }}>
               {elevRange && (
                 <div style={cardStyle}>
-                  <div style={{ fontSize: '0.7rem', color: '#666' }}>Elevation</div>
+                  <div style={{ fontSize: '0.7rem', color: '#7ab898' }}>Elevation</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{elevRange.min}–{elevRange.max}m</div>
                 </div>
               )}
               {weather && (
                 <div style={cardStyle}>
-                  <div style={{ fontSize: '0.7rem', color: '#666' }}>Temperature</div>
+                  <div style={{ fontSize: '0.7rem', color: '#7ab898' }}>Temperature</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>
                     {(() => { const d = weather.data.slice().reverse().find(x => x.temperature_max != null); return d ? `${d.temperature_max}°C / ${d.temperature_min}°C` : 'Loading...'; })()}
                   </div>
                 </div>
               )}
-              {soil && (
-                <div style={cardStyle}>
-                  <div style={{ fontSize: '0.7rem', color: '#666' }}>Soil</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>Clay {soil.layers[0]?.clay ?? '?'}%</div>
-                  <div style={{ fontSize: '0.7rem', color: '#999' }}>pH {soil.layers[0]?.ph ?? '?'}</div>
-                </div>
-              )}
+              <div style={cardStyle}>
+                <div style={{ fontSize: '0.7rem', color: '#7ab898' }}>Soil</div>
+                {soil && soil.layers?.length > 0 ? (
+                  <>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>Clay {soil.layers[0]?.clay ?? '?'}%</div>
+                    <div style={{ fontSize: '0.7rem', color: '#3d6b52' }}>pH {soil.layers[0]?.ph ?? '?'}</div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: '0.75rem', color: '#999' }}>Unavailable — using regional estimates</div>
+                )}
+              </div>
               {groundwater && (
                 <div style={cardStyle}>
-                  <div style={{ fontSize: '0.7rem', color: '#666' }}>Groundwater</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 600, color: groundwater.aquifer?.category === 'safe' ? '#2e7d32' : '#f57f17' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#7ab898' }}>Groundwater</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 600, color: groundwater.aquifer?.category === 'safe' ? '#00cc66' : '#ffb74d' }}>
                     {groundwater.aquifer?.category ?? 'unknown'}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#999' }}>{groundwater.aquifer?.current_depth_m ?? '?'}m deep</div>
+                  <div style={{ fontSize: '0.7rem', color: '#3d6b52' }}>{groundwater.aquifer?.current_depth_m ?? '?'}m deep</div>
                 </div>
               )}
               <div style={cardStyle}>
-                <div style={{ fontSize: '0.7rem', color: '#666' }}>Cropland</div>
+                <div style={{ fontSize: '0.7rem', color: '#7ab898' }}>Cropland</div>
                 <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>72%</div>
-                <div style={{ fontSize: '0.7rem', color: '#999' }}>10m satellite</div>
+                <div style={{ fontSize: '0.7rem', color: '#3d6b52' }}>10m satellite</div>
               </div>
               <div style={cardStyle}>
-                <div style={{ fontSize: '0.7rem', color: '#666' }}>Sun Exposure</div>
+                <div style={{ fontSize: '0.7rem', color: '#7ab898' }}>Sun Exposure</div>
                 <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>78%</div>
-                <div style={{ fontSize: '0.7rem', color: '#999' }}>hillshade</div>
+                <div style={{ fontSize: '0.7rem', color: '#3d6b52' }}>hillshade</div>
               </div>
               {ozoneData && (
                 <div style={cardStyle}>
-                  <div style={{ fontSize: '0.7rem', color: '#666' }}>Ozone</div>
+                  <div style={{ fontSize: '0.7rem', color: '#7ab898' }}>Ozone</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>
                     {String((ozoneData.yield_impact as Record<string, unknown>)?.severity ?? 'N/A')}
                   </div>
@@ -1465,60 +1481,62 @@ export default function FarmAnalysis() {
           {/* LULC Warning — shown before crop selection */}
           {landNotFarmable && (
             <section style={{
-              background: '#ffebee', border: '2px solid #c62828', borderRadius: 10,
+              background: 'rgba(255,82,82,0.1)', border: '2px solid rgba(255,82,82,0.3)', borderRadius: 10,
               padding: '1.25rem', marginBottom: '1rem',
             }}>
-              <h3 style={{ color: '#c62828', margin: '0 0 0.5rem' }}>Land Not Suitable for Farming</h3>
-              <p style={{ color: '#555', margin: '0 0 0.75rem' }}>{landNotFarmable}</p>
+              <h3 style={{ color: '#ff5252', margin: '0 0 0.5rem' }}>Land Not Suitable for Farming</h3>
+              <p style={{ color: '#7ab898', margin: '0 0 0.75rem' }}>{landNotFarmable}</p>
               <button onClick={resetToInput} style={{
-                padding: '8px 20px', background: '#c62828', color: '#fff', border: 'none',
+                padding: '8px 20px', background: 'rgba(255,82,82,0.2)', color: '#ff5252', border: '1px solid rgba(255,82,82,0.3)',
                 borderRadius: 6, cursor: 'pointer', fontWeight: 600,
               }}>Try a Different Location</button>
             </section>
           )}
 
-          {/* Crop Recommendations */}
-          <section className="accent-blue farm-card" style={{ opacity: landNotFarmable ? 0.4 : 1, pointerEvents: landNotFarmable ? 'none' : 'auto' }}>
+          {/* Crop Recommendations — hidden when land not farmable */}
+          {!landNotFarmable && (
+          <section className="accent-blue farm-card">
             <h2>Recommended Crops for Your Land</h2>
-            <p style={{ color: '#666', marginBottom: '1rem' }}>Based on your soil, weather, groundwater, and ozone analysis. Select one or more crops to get a detailed farming plan.</p>
+            <p style={{ color: '#7ab898', marginBottom: '1rem' }}>Based on your soil, weather, groundwater, and ozone analysis. Select one or more crops to get a detailed farming plan.</p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem' }}>
+            <div className="crop-rec-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem' }}>
               {cropRecs.slice(0, 8).map(rec => {
                 const isSelected = selectedCrops.includes(rec.crop);
-                const barColor = rec.score >= 70 ? '#2e7d32' : rec.score >= 50 ? '#f57f17' : '#c62828';
+                const barColor = rec.score >= 70 ? '#00cc66' : rec.score >= 50 ? '#ffb74d' : '#ff5252';
                 return (
                   <div key={rec.crop} onClick={() => toggleCrop(rec.crop)} style={{
                     ...cardStyle, cursor: 'pointer', transition: 'all 0.2s',
-                    border: isSelected ? '2px solid #2e7d32' : '1px solid #eee',
-                    background: isSelected ? '#e8f5e9' : '#fff',
+                    border: isSelected ? '2px solid rgba(0,204,102,0.5)' : '1px solid rgba(0,204,102,0.12)',
+                    background: isSelected ? 'rgba(0,204,102,0.15)' : 'rgba(17,31,23,0.6)',
                     transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+                    boxShadow: isSelected ? '0 0 20px rgba(0,204,102,0.15)' : 'none',
                   }}>
                     <div style={{ fontSize: '1rem', fontWeight: 600, textTransform: 'capitalize' }}>{rec.crop}</div>
                     <div style={{ margin: '6px 0' }}>
-                      <div style={{ height: 6, background: '#e0e0e0', borderRadius: 3 }}>
+                      <div style={{ height: 6, background: 'rgba(0,204,102,0.1)', borderRadius: 3 }}>
                         <div style={{ height: '100%', borderRadius: 3, background: barColor, width: `${rec.score}%`, transition: 'width 0.5s' }} />
                       </div>
                       <div style={{ fontSize: '0.7rem', color: barColor, fontWeight: 600, marginTop: 2 }}>{rec.score}/100</div>
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: '#666' }}>{rec.reason}</div>
-                    {isSelected && <div style={{ marginTop: 4, fontSize: '0.75rem', color: '#2e7d32', fontWeight: 600 }}>Selected</div>}
+                    <div style={{ fontSize: '0.75rem', color: '#7ab898' }}>{rec.reason}</div>
+                    {isSelected && <div style={{ marginTop: 4, fontSize: '0.75rem', color: '#00cc66', fontWeight: 600 }}>Selected</div>}
                   </div>
                 );
               })}
             </div>
 
             <details style={{ marginTop: '1rem' }}>
-              <summary style={{ cursor: 'pointer', fontSize: '0.85rem', color: '#666' }}>
+              <summary style={{ cursor: 'pointer', fontSize: '0.85rem', color: '#7ab898' }}>
                 Or choose from all {Object.keys(crops).length} available crops...
               </summary>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
                 {Object.keys(crops).map(c => {
                   const isSelected = selectedCrops.includes(c);
                   return (
-                    <button key={c} onClick={() => toggleCrop(c)} style={{
+                    <button key={c} className="crop-pill" onClick={() => toggleCrop(c)} style={{
                       padding: '4px 12px', borderRadius: 16, fontSize: '0.8rem', cursor: 'pointer',
-                      background: isSelected ? '#2e7d32' : '#f5f5f5', color: isSelected ? '#fff' : '#333',
-                      border: isSelected ? '1px solid #2e7d32' : '1px solid #ddd',
+                      background: isSelected ? 'rgba(0,204,102,0.25)' : 'rgba(17,31,23,0.6)', color: isSelected ? '#00cc66' : '#7ab898',
+                      border: isSelected ? '1px solid rgba(0,204,102,0.5)' : '1px solid rgba(0,204,102,0.15)',
                     }}>{c.charAt(0).toUpperCase() + c.slice(1)}</button>
                   );
                 })}
@@ -1528,10 +1546,12 @@ export default function FarmAnalysis() {
             <button onClick={() => runSimulation()} disabled={selectedCrops.length === 0}
               style={{
                 marginTop: '1.25rem', width: '100%', padding: '14px 36px',
-                fontSize: '1.1rem', fontWeight: 700, borderRadius: 10, border: 'none',
+                fontSize: '1.1rem', fontWeight: 700, borderRadius: 10,
+                border: selectedCrops.length > 0 ? '1px solid rgba(0,204,102,0.3)' : '1px solid rgba(0,204,102,0.1)',
                 cursor: selectedCrops.length > 0 ? 'pointer' : 'not-allowed',
-                background: selectedCrops.length > 0 ? 'linear-gradient(135deg, #2e7d32, #43a047)' : '#ccc',
-                color: '#fff', boxShadow: selectedCrops.length > 0 ? '0 4px 14px rgba(46,125,50,0.3)' : 'none',
+                background: selectedCrops.length > 0 ? 'linear-gradient(135deg, rgba(0,204,102,0.2), rgba(0,204,102,0.1))' : 'rgba(17,31,23,0.4)',
+                color: selectedCrops.length > 0 ? '#00cc66' : '#3d6b52',
+                boxShadow: selectedCrops.length > 0 ? '0 0 20px rgba(0,204,102,0.15)' : 'none',
               }}>
               {selectedCrops.length > 0
                 ? `Get Farming Plan for ${selectedCrops.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')}`
@@ -1539,6 +1559,7 @@ export default function FarmAnalysis() {
               }
             </button>
           </section>
+          )}
         </>
       )}
 
@@ -1548,13 +1569,13 @@ export default function FarmAnalysis() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
             <h2 style={{ margin: 0 }}>Building your farming plan...</h2>
             <button onClick={() => setPhase('recommend')} style={{
-              background: '#f5f5f5', color: '#555', border: '1px solid #ddd', borderRadius: 6,
+              background: 'rgba(17,31,23,0.6)', color: '#7ab898', border: '1px solid rgba(0,204,102,0.2)', borderRadius: 6,
               padding: '4px 12px', fontSize: '0.8rem', cursor: 'pointer',
             }}>&larr; Change Crops</button>
           </div>
           <p>{selectedCrops.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')} at {lat.toFixed(5)}&deg;N, {lon.toFixed(5)}&deg;E</p>
 
-          <div style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: 10, padding: '1.25rem', margin: '1rem 0' }}>
+          <div style={{ background: 'rgba(17,31,23,0.6)', border: '1px solid rgba(0,204,102,0.12)', borderRadius: 10, padding: '1.25rem', margin: '1rem 0', backdropFilter: 'blur(12px)' }}>
             {simSteps.map((step, i) => (
               <div key={i} style={{
                 display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.75rem',
@@ -1562,8 +1583,8 @@ export default function FarmAnalysis() {
               }}>
                 <StepIcon status={step.status} />
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: '0.88rem', color: step.status === 'pending' ? '#bbb' : '#333' }}>{step.label}</div>
-                  <div style={{ fontSize: '0.78rem', color: '#999' }}>{step.detail}</div>
+                  <div style={{ fontWeight: 600, fontSize: '0.88rem', color: step.status === 'pending' ? '#3d6b52' : '#e8f5ee' }}>{step.label}</div>
+                  <div style={{ fontSize: '0.78rem', color: '#7ab898' }}>{step.detail}</div>
                 </div>
               </div>
             ))}
@@ -1578,19 +1599,19 @@ export default function FarmAnalysis() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button onClick={resetToInput} style={{
-                background: '#f5f5f5', color: '#555', border: '1px solid #ddd', borderRadius: 6,
+                background: 'rgba(17,31,23,0.6)', color: '#7ab898', border: '1px solid rgba(0,204,102,0.2)', borderRadius: 6,
                 padding: '6px 14px', fontSize: '0.82rem', cursor: 'pointer',
               }}>&larr; New Analysis</button>
               <button onClick={() => setPhase('recommend')} style={{
-                background: '#e8f5e9', color: '#2e7d32', border: '1px solid #a5d6a7', borderRadius: 6,
+                background: 'rgba(0,204,102,0.1)', color: '#00cc66', border: '1px solid rgba(0,204,102,0.2)', borderRadius: 6,
                 padding: '6px 14px', fontSize: '0.82rem', cursor: 'pointer',
               }}>&larr; Change Crops</button>
               <button onClick={() => window.print()} className="no-print" style={{
-                background: '#e3f2fd', color: '#1565c0', border: '1px solid #90caf9', borderRadius: 6,
+                background: 'rgba(79,195,247,0.1)', color: '#4fc3f7', border: '1px solid rgba(79,195,247,0.2)', borderRadius: 6,
                 padding: '6px 14px', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600,
               }}>Download Report</button>
             </div>
-            <div style={{ fontSize: '0.85rem', color: '#666' }}>
+            <div style={{ fontSize: '0.85rem', color: '#7ab898' }}>
               {selectedCrops.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')} &middot; {lat.toFixed(5)}&deg;N, {lon.toFixed(5)}&deg;E &middot; {fieldArea} ha
             </div>
           </div>
@@ -1598,20 +1619,20 @@ export default function FarmAnalysis() {
           {/* Print-only header */}
           <div style={{ display: 'none' }} className="print-header">
             <h1 style={{ fontSize: '1.4rem', marginBottom: 4 }}>KrishiDisha Farm Analysis Report</h1>
-            <p style={{ color: '#555', fontSize: '0.9rem', margin: 0 }}>
+            <p style={{ color: '#7ab898', fontSize: '0.9rem', margin: 0 }}>
               {selectedCrops.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')} &middot; {lat.toFixed(4)}&deg;N, {lon.toFixed(4)}&deg;E &middot; {fieldArea} ha &middot; Generated {new Date().toLocaleDateString()}
             </p>
             <hr style={{ margin: '0.75rem 0', border: 'none', borderTop: '1px solid #ccc' }} />
           </div>
 
           {usingMock && (
-            <div style={{ background: '#fff8e1', padding: '0.5rem 0.75rem', borderRadius: 6, fontSize: '0.85rem', color: '#f57f17', marginBottom: '1rem' }}>
+            <div style={{ background: 'rgba(255,183,77,0.1)', border: '1px solid rgba(255,183,77,0.2)', padding: '0.5rem 0.75rem', borderRadius: 6, fontSize: '0.85rem', color: '#ffb74d', marginBottom: '1rem' }}>
               Backend processing — showing simulated analysis for demo.
             </div>
           )}
 
           {lulcWarning && (
-            <div style={{ background: '#fff8e1', border: '1px solid #ffb300', padding: '0.75rem 1rem', borderRadius: 8, fontSize: '0.88rem', color: '#e65100', marginBottom: '1rem' }}>
+            <div style={{ background: 'rgba(255,183,77,0.1)', border: '1px solid rgba(255,183,77,0.2)', padding: '0.75rem 1rem', borderRadius: 8, fontSize: '0.88rem', color: '#ffb74d', marginBottom: '1rem' }}>
               <strong>Land Use Warning:</strong> {lulcWarning}
             </div>
           )}
@@ -1619,11 +1640,11 @@ export default function FarmAnalysis() {
           {/* Adjustment Panel */}
           <section className="accent-green farm-card no-print" style={{ padding: '0.75rem 1rem' }}>
             <button onClick={() => setShowAdjust(!showAdjust)} style={{
-              background: 'transparent', color: '#333', border: 'none', padding: 0,
+              background: 'transparent', color: '#e8f5ee', border: 'none', padding: 0,
               fontSize: '0.9rem', cursor: 'pointer', fontWeight: 600, width: '100%', textAlign: 'left',
             }}>{showAdjust ? '\u25B4' : '\u25BE'} What if I change something?</button>
             {showAdjust && (
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'end', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #eee' }}>
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'end', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(0,204,102,0.12)' }}>
                 <label style={{ fontSize: '0.85rem' }}>Sowing: <select value={adjSowing} onChange={e => setAdjSowing(e.target.value)} style={{ marginLeft: 4 }}>
                   <option value="auto">Auto</option><option value="kharif">Kharif</option><option value="rabi">Rabi</option>
                 </select></label>
@@ -1642,12 +1663,12 @@ export default function FarmAnalysis() {
                 <div style={{ textAlign: 'center' }}><ScoreRing score={score.overall} size={90} /><div style={{ fontSize: '0.75rem', color: '#666', marginTop: 4 }}>Overall</div></div>
                 <div className="farm-score-grid" style={{ flex: 1 }}>
                   {[
-                    { label: 'Yield', value: score.yield_score, color: '#1565c0', tip: 'Expected crop output based on WOFOST simulation' },
-                    { label: 'Water', value: score.water_score, color: '#00695c', tip: 'Water availability and irrigation efficiency from AquaCrop' },
-                    { label: 'Nutrient', value: score.nutrient_score, color: '#ef6c00', tip: 'Soil nutrient status and fertilizer response from DSSAT' },
-                    { label: 'Risk', value: score.risk_score, color: '#6a1b9a', tip: 'Combined risk from drought, ozone, groundwater depletion' },
+                    { label: 'Yield', value: score.yield_score, color: '#4fc3f7', tip: 'Expected crop output based on WOFOST simulation' },
+                    { label: 'Water', value: score.water_score, color: '#00cc66', tip: 'Water availability and irrigation efficiency from AquaCrop' },
+                    { label: 'Nutrient', value: score.nutrient_score, color: '#ffb74d', tip: 'Soil nutrient status and fertilizer response from DSSAT' },
+                    { label: 'Risk', value: score.risk_score, color: '#b39ddb', tip: 'Combined risk from drought, ozone, groundwater depletion' },
                   ].map(s => (
-                    <div key={s.label} style={{ textAlign: 'center' }}><div style={{ fontSize: '1.5rem', fontWeight: 700, color: s.color }}>{s.value}</div><div style={{ fontSize: '0.75rem', color: '#666' }}>{s.label}{s.tip && <HelpTip text={s.tip} />}</div></div>
+                    <div key={s.label} style={{ textAlign: 'center' }}><div style={{ fontSize: '1.5rem', fontWeight: 700, color: s.color }}>{s.value}</div><div style={{ fontSize: '0.75rem', color: '#7ab898' }}>{s.label}{s.tip && <HelpTip text={s.tip} />}</div></div>
                   ))}
                 </div>
               </div>
@@ -1685,16 +1706,16 @@ export default function FarmAnalysis() {
 
           {/* All infeasible warning */}
           {allInfeasible && (
-            <section className="accent-green farm-card" style={{ background: '#ffebee', border: '2px solid #f44336', borderRadius: 10, padding: '1.25rem' }}>
-              <h2 style={{ color: '#b71c1c', fontSize: '1.1rem' }}>None of your selected crops are viable</h2>
-              <p style={{ color: '#c62828', fontSize: '0.9rem' }}>
+            <section className="accent-green farm-card" style={{ background: 'rgba(255,82,82,0.1)', border: '2px solid rgba(255,82,82,0.3)', borderRadius: 10, padding: '1.25rem' }}>
+              <h2 style={{ color: '#ff5252', fontSize: '1.1rem' }}>None of your selected crops are viable</h2>
+              <p style={{ color: '#ff5252', fontSize: '0.9rem' }}>
                 None of the selected crops are suitable for this location. Here are the top recommended alternatives:
               </p>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
                 {cropRecs.slice(0, 4).map(rec => (
                   <button key={rec.crop} onClick={() => handleTryAlternative(rec.crop)} style={{
                     padding: '6px 16px', borderRadius: 16, fontSize: '0.85rem', cursor: 'pointer',
-                    background: '#e8f5e9', color: '#2e7d32', border: '1px solid #a5d6a7', fontWeight: 600,
+                    background: 'rgba(0,204,102,0.1)', color: '#00cc66', border: '1px solid rgba(0,204,102,0.3)', fontWeight: 600,
                   }}>
                     {rec.crop.charAt(0).toUpperCase() + rec.crop.slice(1)} ({rec.score}/100)
                   </button>
@@ -1725,10 +1746,10 @@ export default function FarmAnalysis() {
 
           {/* Data Sources */}
           {result.data_sources && (
-            <div style={{ fontSize: '0.8rem', color: '#666', padding: '0 0.5rem' }}>
+            <div style={{ fontSize: '0.8rem', color: '#7ab898', padding: '0 0.5rem' }}>
               <strong>Data sources: </strong>
               {Object.entries(result.data_sources).map(([key, val], i) => (
-                <span key={key}>{i > 0 && ' · '}<span style={{ color: '#2e7d32' }}>{key}: {val}</span></span>
+                <span key={key}>{i > 0 && ' · '}<span style={{ color: '#00cc66' }}>{key}: {val}</span></span>
               ))}
             </div>
           )}
@@ -1740,18 +1761,18 @@ export default function FarmAnalysis() {
 
       {/* Not farmable location error */}
       {error && notFarmableLand && (
-        <section className="farm-card" style={{ background: '#ffebee', border: '2px solid #f44336', borderRadius: 10, padding: '1.25rem', margin: '1rem 0' }}>
-          <h2 style={{ color: '#b71c1c', fontSize: '1.1rem', marginTop: 0 }}>Location Not Suitable for Farming</h2>
-          <p style={{ color: '#c62828', fontSize: '0.9rem' }}>{error}</p>
+        <section className="farm-card" style={{ background: 'rgba(255,82,82,0.1)', border: '2px solid rgba(255,82,82,0.3)', borderRadius: 10, padding: '1.25rem', margin: '1rem 0' }}>
+          <h2 style={{ color: '#ff5252', fontSize: '1.1rem', marginTop: 0 }}>Location Not Suitable for Farming</h2>
+          <p style={{ color: '#ff5252', fontSize: '0.9rem' }}>{error}</p>
           <LandAnalysisCards land={notFarmableLand} />
           <button onClick={resetToInput} style={{
-            marginTop: '1rem', padding: '10px 24px', background: '#c62828', color: '#fff',
-            border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600,
+            marginTop: '1rem', padding: '10px 24px', background: 'rgba(255,82,82,0.2)', color: '#ff5252',
+            border: '1px solid rgba(255,82,82,0.3)', borderRadius: 8, cursor: 'pointer', fontWeight: 600,
           }}>&larr; Try a Different Location</button>
         </section>
       )}
 
-      {error && !notFarmableLand && <div style={{ color: '#c62828', background: '#ffebee', padding: '1rem', borderRadius: 8, margin: '1rem 0' }}>{error}</div>}
+      {error && !notFarmableLand && <div style={{ color: '#ff5252', background: 'rgba(255,82,82,0.1)', border: '1px solid rgba(255,82,82,0.2)', padding: '1rem', borderRadius: 8, margin: '1rem 0' }}>{error}</div>}
     </div>
   );
 }
