@@ -266,82 +266,143 @@ const PHASE_COLORS: Record<string, string> = {
 };
 
 function PlantingTimeline({ events, cropPlans, highlightedCrop, onCropClick }: { events: TimelineEvent[]; cropPlans: CropPlan[]; highlightedCrop?: string | null; onCropClick?: (crop: string) => void }) {
-  // Build bars: each crop spans from land_prep start to post_harvest end
-  const bars: { crop: string; startMonth: number; endMonth: number; color: string; activities?: CropActivity[] }[] = [];
+  const [hoveredCrop, setHoveredCrop] = useState<string | null>(null);
+  const [highlightedMonth, setHighlightedMonth] = useState<number | null>(null);
+
+  // Build bars
+  const bars: { crop: string; startMonth: number; endMonth: number; color: string; activities?: CropActivity[];
+    yield?: number; waterMm?: number; season?: string; sowDate?: string; harvDate?: string }[] = [];
 
   for (const plan of cropPlans) {
     if (plan.feasibility && !plan.feasibility.viable && plan.feasibility.severity === 'impossible') continue;
     const activities = plan.detailed_timeline ?? [];
-
-    // Prefer optimal_period dates (includes land prep start to harvest)
     const optStart = plan.sowing?.optimal_period?.start;
     const optEnd = plan.sowing?.optimal_period?.end;
-    let startIdx: number;
-    let endIdx: number;
+    let startIdx: number, endIdx: number;
 
     if (optStart && optEnd) {
       startIdx = new Date(optStart).getMonth();
       endIdx = new Date(optEnd).getMonth();
     } else if (activities.length > 0) {
-      // Use actual activity dates for accurate span
       const dates = activities.map(a => a.date).filter(Boolean).sort();
-      if (dates.length > 0) {
-        startIdx = new Date(dates[0]).getMonth();
-        endIdx = new Date(dates[dates.length - 1]).getMonth();
-      } else {
-        const sowMonth = plan.sowing?.best_month ?? '';
-        startIdx = monthIndex(sowMonth);
-        endIdx = Math.min(11, startIdx + 5);
-      }
+      startIdx = dates.length > 0 ? new Date(dates[0]).getMonth() : monthIndex(plan.sowing?.best_month ?? '');
+      endIdx = dates.length > 0 ? new Date(dates[dates.length - 1]).getMonth() : Math.min(11, startIdx + 5);
     } else {
-      // Fallback: start 1 month before sowing, end from events
       const sowMonth = plan.sowing?.best_month ?? '';
-      startIdx = (monthIndex(sowMonth) + 11) % 12; // -1 month for land prep
-      const harvestEvent = events.find(e => e.crops?.includes(plan.crop) && e.action?.toLowerCase().includes('harvest'));
-      endIdx = harvestEvent ? monthIndex(harvestEvent.month) : Math.min(11, startIdx + 5);
+      startIdx = (monthIndex(sowMonth) + 11) % 12;
+      const he = events.find(e => e.crops?.includes(plan.crop) && e.action?.toLowerCase().includes('harvest'));
+      endIdx = he ? monthIndex(he.month) : Math.min(11, startIdx + 5);
     }
 
-    bars.push({ crop: plan.crop, startMonth: startIdx, endMonth: endIdx, color: plan.zone?.color ?? '#4caf50', activities });
+    const wofost = plan.models?.wofost as Record<string, unknown> | null;
+    const aquacrop = plan.models?.aquacrop as Record<string, unknown> | null;
+    bars.push({
+      crop: plan.crop, startMonth: startIdx, endMonth: endIdx,
+      color: plan.zone?.color ?? '#4caf50', activities,
+      yield: Number(wofost?.yield_kg_ha ?? 0),
+      waterMm: Number(aquacrop?.total_water_need_mm ?? aquacrop?.irrigation_need_mm ?? 0),
+      season: plan.sowing?.season ?? '',
+      sowDate: (plan.sowing?.optimal_period as Record<string,unknown>)?.sowing_date as string ?? optStart ?? '',
+      harvDate: optEnd ?? '',
+    });
   }
 
   if (bars.length === 0) return null;
 
   return (
-    <div style={{ overflowX: 'auto' }}>
-      {/* Month headers */}
+    <div style={{ overflowX: 'auto', position: 'relative' }}>
+      {/* Month headers — clickable to highlight */}
       <div style={{ display: 'flex', borderBottom: '1px solid #e0e0e0', marginBottom: 6 }}>
-        {MONTHS.map(m => (
-          <div key={m} style={{ flex: '0 0 calc(100%/12)', fontSize: '0.68rem', color: '#888', textAlign: 'center', padding: '3px 0' }}>{m}</div>
+        {MONTHS.map((m, mi) => (
+          <div key={m}
+            onClick={() => setHighlightedMonth(highlightedMonth === mi ? null : mi)}
+            style={{
+              flex: '0 0 calc(100%/12)', fontSize: '0.68rem', textAlign: 'center', padding: '3px 0', cursor: 'pointer',
+              color: highlightedMonth === mi ? '#1565c0' : '#888',
+              fontWeight: highlightedMonth === mi ? 700 : 400,
+              background: highlightedMonth === mi ? '#e3f2fd' : 'transparent',
+              borderRadius: 3, transition: 'all 0.15s',
+            }}>{m}</div>
         ))}
       </div>
+
+      {/* Month highlight column */}
+      {highlightedMonth !== null && (
+        <div style={{
+          position: 'absolute', left: `${(highlightedMonth / 12) * 100}%`, width: `${100 / 12}%`,
+          top: 0, bottom: 0, background: 'rgba(21,101,192,0.06)', pointerEvents: 'none', zIndex: 0,
+        }} />
+      )}
 
       {/* Bars */}
       {bars.map(bar => {
         const span = bar.endMonth >= bar.startMonth ? bar.endMonth - bar.startMonth + 1 : (12 - bar.startMonth) + bar.endMonth + 1;
         const isSelected = highlightedCrop === bar.crop;
         const isDimmed = highlightedCrop && !isSelected;
+        const isHovered = hoveredCrop === bar.crop;
+        const barLeft = (bar.startMonth / 12) * 100;
+        const barWidth = (span / 12) * 100;
 
         return (
-          <div key={bar.crop} style={{ marginBottom: 6 }}>
+          <div key={bar.crop} style={{ marginBottom: 6, position: 'relative' }}
+            onMouseEnter={() => setHoveredCrop(bar.crop)}
+            onMouseLeave={() => setHoveredCrop(null)}>
+
             {/* Crop label */}
-            <div style={{ fontSize: '0.7rem', fontWeight: 600, color: isDimmed ? '#ccc' : '#555', textTransform: 'capitalize', marginBottom: 2, paddingLeft: `${(bar.startMonth / 12) * 100}%` }}>
+            <div style={{ fontSize: '0.7rem', fontWeight: 600, color: isDimmed ? '#ccc' : '#555', textTransform: 'capitalize', marginBottom: 2, paddingLeft: `${barLeft}%` }}>
               {bar.crop}
             </div>
 
             <div onClick={() => onCropClick?.(bar.crop)}
               style={{ position: 'relative', cursor: 'pointer', transition: 'height 0.2s' }}>
 
-              {/* Main bar — solid color when not selected */}
-              {!isSelected && (
-                <div style={{ height: 18, position: 'relative' }}>
+              {/* #1: Hover tooltip */}
+              {isHovered && !isSelected && (
+                <div style={{
+                  position: 'absolute', bottom: '100%', left: `${barLeft + barWidth / 2}%`, transform: 'translateX(-50%)',
+                  background: '#333', color: '#fff', padding: '6px 10px', borderRadius: 6, fontSize: '0.7rem',
+                  whiteSpace: 'nowrap', zIndex: 20, marginBottom: 4, lineHeight: 1.5,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                }}>
+                  <strong style={{ textTransform: 'capitalize' }}>{bar.crop}</strong> ({bar.season})<br />
+                  {bar.sowDate && <>Sow: {fmtDate(bar.sowDate)}<br /></>}
+                  {bar.harvDate && <>Harvest: {fmtDate(bar.harvDate)}<br /></>}
+                  {bar.yield ? <>Yield: {bar.yield.toLocaleString()} kg/ha<br /></> : null}
+                  {bar.waterMm ? <>Water: {bar.waterMm} mm</> : null}
                   <div style={{
-                    position: 'absolute',
-                    left: `${(bar.startMonth / 12) * 100}%`,
-                    width: `${(span / 12) * 100}%`,
+                    position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                    width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '5px solid #333',
+                  }} />
+                </div>
+              )}
+
+              {/* Main bar — with activity dots (#6) when not selected */}
+              {!isSelected && (
+                <div style={{ height: 20, position: 'relative' }}>
+                  <div style={{
+                    position: 'absolute', left: `${barLeft}%`, width: `${barWidth}%`,
                     height: '100%', borderRadius: 4,
                     background: bar.color, opacity: isDimmed ? 0.2 : 0.75,
                     transition: 'all 0.2s',
                   }} />
+                  {/* #6: Activity dots on the bar */}
+                  {!isDimmed && bar.activities && bar.activities.length > 0 && (() => {
+                    const totalDays = Math.max(1, Math.max(...bar.activities.map(a => a.day)) - Math.min(...bar.activities.map(a => a.day)));
+                    const baseDay = Math.min(...bar.activities.map(a => a.day));
+                    return bar.activities
+                      .filter(a => a.priority === 'critical')
+                      .map((a, i) => {
+                        const dotPct = barLeft + ((a.day - baseDay) / totalDays) * barWidth;
+                        return (
+                          <div key={i} title={`${a.activity} (${fmtDate(a.date)})`} style={{
+                            position: 'absolute', left: `${dotPct}%`, top: 3,
+                            width: 6, height: 6, borderRadius: '50%',
+                            background: '#fff', border: '1.5px solid rgba(0,0,0,0.4)',
+                            transform: 'translateX(-50%)', zIndex: 2,
+                          }} />
+                        );
+                      });
+                  })()}
                 </div>
               )}
 
@@ -1168,7 +1229,7 @@ export default function FarmAnalysis() {
       }
 
       await new Promise(r => setTimeout(r, 600));
-      setPhase('recommend');
+      setPhase('recommend'); setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 50);
 
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Environment analysis failed');
@@ -1236,7 +1297,7 @@ export default function FarmAnalysis() {
       if (resAny.error === 'location_not_farmable') {
         setError(String(resAny.message ?? 'This location is not suitable for farming.'));
         setNotFarmableLand(res.land_analysis ?? null);
-        setPhase('results'); window.scrollTo({ top: 0, behavior: 'smooth' });
+        setPhase('results'); setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 50);
         return;
       }
 
@@ -1252,7 +1313,7 @@ export default function FarmAnalysis() {
       setSimProgress(100);
       setResult(res);
       await new Promise(r => setTimeout(r, 600));
-      setPhase('results'); window.scrollTo({ top: 0, behavior: 'smooth' });
+      setPhase('results'); setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 50);
     } catch {
       clearTimers();
       const mock = getMockResponse(req);
@@ -1262,7 +1323,7 @@ export default function FarmAnalysis() {
       setResult(mock);
       setUsingMock(true);
       await new Promise(r => setTimeout(r, 600));
-      setPhase('results'); window.scrollTo({ top: 0, behavior: 'smooth' });
+      setPhase('results'); setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 50);
     }
   };
 

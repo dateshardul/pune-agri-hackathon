@@ -269,6 +269,7 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
   const [activeOverlay, setActiveOverlay] = useState<OverlayType>(null);
   const [layers, setLayers] = useState<LayerEntry[]>([]);
   const [selectedAnnotation, setSelectedAnnotation] = useState<Annotation | null>(null);
+  const [compassAngle, setCompassAngle] = useState(0);
 
   // Elevation info for display
   const [elevationRange, setElevationRange] = useState<{ min: number; max: number } | null>(null);
@@ -369,15 +370,14 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
           const terrainLayer = eng.layers.add({ name: 'Terrain', visible: true });
           terrain.addTo(terrainLayer.group);
 
-          // Simple green ground plane (no map overlay)
+          // Subtle ground plane — matches sky color to avoid dark border
           {
-            const groundSize = terrainRef.current ? (elevResult?.width ?? 64) * 0.2 * 2.5 : 50;
+            const groundSize = terrainRef.current ? (elevResult?.width ?? 64) * 0.2 * 2 : 40;
             const groundGeom = new THREE.PlaneGeometry(groundSize, groundSize);
             groundGeom.rotateX(-Math.PI / 2);
-            const groundMat = new THREE.MeshStandardMaterial({ color: 0xb5c99a, roughness: 1 });
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0xd4e6f1, roughness: 1, transparent: true, opacity: 0.5 });
             const ground = new THREE.Mesh(groundGeom, groundMat);
-            ground.position.y = -0.3;
-            ground.receiveShadow = true;
+            ground.position.y = -0.5;
             terrainLayer.group.add(ground);
           }
 
@@ -429,25 +429,7 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
               mesh.userData = { cropName: cz.crop };
               layer.group.add(mesh);
 
-              // Label sprite
-              const centerY = ((zLow + zHigh) / 2 - eMin) * hScl;
-              const canvas = document.createElement('canvas');
-              canvas.width = 300; canvas.height = 64;
-              const ctx = canvas.getContext('2d');
-              if (ctx) {
-                ctx.fillStyle = cz.color || '#4caf50';
-                ctx.roundRect(0, 0, 300, 64, 8); ctx.fill();
-                ctx.fillStyle = '#fff';
-                ctx.font = 'bold 26px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(`${cropName} (${cz.type || 'field'})`, 150, 42);
-                const tex = new THREE.CanvasTexture(canvas);
-                const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.9 });
-                const sprite = new THREE.Sprite(spriteMat);
-                sprite.position.set(0, centerY + 2.0, 0);
-                sprite.scale.set(8, 2, 1);
-                layer.group.add(sprite);
-              }
+              // Zone labels shown in crop zone legend card, not on 3D terrain
             });
           } else if (cropZones && cropZones.length > 0) {
             // Fallback without elevation
@@ -492,7 +474,7 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
             markerMeshes.push(marker);
           }
 
-          // Scale markers inversely with camera distance to keep constant screen size
+          // Scale markers + update compass with camera rotation
           eng.onUpdate(() => {
             const camPos = eng.camera.position;
             for (const m of markerMeshes) {
@@ -500,6 +482,9 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
               const scale = Math.max(0.3, dist / 80);
               m.scale.setScalar(scale);
             }
+            // Compass: calculate camera azimuth angle
+            const angle = Math.atan2(camPos.x, camPos.z) * (180 / Math.PI);
+            setCompassAngle(angle);
           });
 
           // ── Annotation click handler ──
@@ -828,7 +813,7 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
             </span>
           </div>
 
-          {/* Compass */}
+          {/* Compass — rotates with camera */}
           <div style={{
             position: 'absolute', top: '12px', right: '12px',
             width: 50, height: 50,
@@ -837,10 +822,9 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
             boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
             border: '2px solid #ddd', zIndex: 5,
           }}>
-            <svg width="36" height="36" viewBox="0 0 36 36">
-              {/* North arrow (red) */}
+            <svg width="36" height="36" viewBox="0 0 36 36"
+              style={{ transform: `rotate(${-compassAngle}deg)`, transition: 'transform 0.1s ease-out' }}>
               <polygon points="18,2 22,18 18,14 14,18" fill="#c62828" />
-              {/* South arrow (grey) */}
               <polygon points="18,34 22,18 18,22 14,18" fill="#bbb" />
               <text x="18" y="10" textAnchor="middle" fontSize="7" fontWeight="bold" fill="#c62828">N</text>
               <text x="18" y="32" textAnchor="middle" fontSize="6" fill="#999">S</text>
@@ -943,6 +927,25 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
                   Click other markers to see weather and soil data from this location.
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Crop zone legend (replaces text labels on terrain) */}
+          {cropZones && cropZones.length > 0 && !selectedAnnotation && (
+            <div style={{
+              position: 'absolute', bottom: cropZones.length > 0 && landcover ? '160px' : '60px', left: '12px',
+              background: 'rgba(10,10,30,0.92)', color: '#fff',
+              padding: '10px 14px', borderRadius: '8px', fontSize: '0.78rem',
+              maxWidth: '200px', zIndex: 4,
+            }}>
+              <div style={{ fontWeight: 600, marginBottom: '6px', fontSize: '0.8rem' }}>Crop Zones</div>
+              {cropZones.map((cz) => (
+                <div key={cz.crop} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                  <span style={{ width: 12, height: 12, borderRadius: 3, background: cz.color || '#4caf50', flexShrink: 0 }} />
+                  <span style={{ textTransform: 'capitalize', fontSize: '0.76rem' }}>{cz.crop}</span>
+                  <span style={{ fontSize: '0.65rem', color: '#aaa', marginLeft: 'auto' }}>{cz.type || ''}</span>
+                </div>
+              ))}
             </div>
           )}
 
