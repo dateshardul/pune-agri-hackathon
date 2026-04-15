@@ -397,7 +397,7 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
             const eRange = eMax - eMin;
             const hScl = eRange > 0 ? 2 / eRange : 1;
             const planeSize = gridW * 0.2;
-            const segs = Math.min(gridW - 1, 127);
+            const segs = Math.min(gridW - 1, 31); // 32 segments is enough for zone overlay
 
             cropZones.forEach((cz) => {
               const cropName = cz.crop.charAt(0).toUpperCase() + cz.crop.slice(1);
@@ -410,31 +410,32 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
               const zHigh = rawRange[1] + 5;
               const zoneColor = new THREE.Color(cz.color || '#4caf50');
 
+              // Simple plane with vertex colors — no shader compilation needed
               const geom = new THREE.PlaneGeometry(planeSize, planeSize, segs, segs);
               geom.rotateX(-Math.PI / 2);
               const pos = geom.attributes.position;
-              const elevs = new Float32Array(pos.count);
+              const colors = new Float32Array(pos.count * 4); // RGBA per vertex
 
               for (let i = 0; i < pos.count; i++) {
                 const gx = Math.min(Math.max(Math.round(((pos.getX(i) / planeSize) + 0.5) * (gridW - 1)), 0), gridW - 1);
                 const gz = Math.min(Math.max(Math.round(((pos.getZ(i) / planeSize) + 0.5) * (gridH - 1)), 0), gridH - 1);
                 const absElev = hData[Math.min(gz * gridW + gx, hData.length - 1)];
-                pos.setY(i, (absElev - eMin) * hScl + 0.03);
-                elevs[i] = absElev;
+                pos.setY(i, (absElev - eMin) * hScl + 0.05);
+                // Set vertex color — visible if within elevation range, transparent if outside
+                const inRange = absElev >= zLow && absElev <= zHigh;
+                colors[i * 4] = zoneColor.r;
+                colors[i * 4 + 1] = zoneColor.g;
+                colors[i * 4 + 2] = zoneColor.b;
+                colors[i * 4 + 3] = inRange ? 0.3 : 0.0;
               }
               pos.needsUpdate = true;
-              geom.computeVertexNormals();
-              geom.setAttribute('elevation', new THREE.BufferAttribute(elevs, 1));
+              geom.setAttribute('color', new THREE.BufferAttribute(colors, 4));
 
-              const mat = new THREE.ShaderMaterial({
-                uniforms: { uColor: { value: zoneColor }, uElevLow: { value: zLow }, uElevHigh: { value: zHigh } },
-                vertexShader: `attribute float elevation; varying float vElev; void main() { vElev = elevation; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-                fragmentShader: `uniform vec3 uColor; uniform float uElevLow; uniform float uElevHigh; varying float vElev; void main() { if (vElev < uElevLow || vElev > uElevHigh) discard; gl_FragColor = vec4(uColor, 0.25); }`,
-                transparent: true, side: THREE.DoubleSide, depthWrite: false,
+              const mat = new THREE.MeshBasicMaterial({
+                vertexColors: true, transparent: true, side: THREE.DoubleSide, depthWrite: false,
               });
 
               const mesh = new THREE.Mesh(geom, mat);
-              // Store crop name for click detection
               mesh.userData = { cropName: cz.crop };
               layer.group.add(mesh);
 
