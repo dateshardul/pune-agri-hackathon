@@ -168,11 +168,14 @@ function buildAnnotations(
 ): AnnotationDef[] {
   const annotations: AnnotationDef[] = [];
 
+  // Scale factor — markers must fit within terrain (64*0.2=12.8 units wide)
+  const s = 4; // half-size of marker area
+
   // Center: farm location marker
   annotations.push({
-    pos: new THREE.Vector3(0, 9, 0),
+    pos: new THREE.Vector3(0, 2, 0),
     title: 'Your Farm',
-    desc: `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E`,
+    desc: `${lat.toFixed(5)}°N, ${lon.toFixed(5)}°E`,
     data: { type: 'farm', lat, lon },
     color: 0x00ff88,
   });
@@ -182,7 +185,7 @@ function buildAnnotations(
     const latest = weather.data.slice().reverse().find(d => d.temperature_max !== null)
       ?? weather.data[weather.data.length - 1];
     annotations.push({
-      pos: new THREE.Vector3(18, 8, -15),
+      pos: new THREE.Vector3(s, 2, -s),
       title: 'Weather Station',
       desc: [
         `${latest.temperature_max ?? '—'}°C / ${latest.temperature_min ?? '—'}°C`,
@@ -211,7 +214,7 @@ function buildAnnotations(
     const deepLayer = soil.layers[soil.layers.length - 1];
 
     annotations.push({
-      pos: new THREE.Vector3(-14, 6, 8),
+      pos: new THREE.Vector3(-s, 2, s * 0.5),
       title: 'Soil — Topsoil',
       desc: `Clay: ${topLayer.clay ?? '—'}% | Sand: ${topLayer.sand ?? '—'}% | pH: ${topLayer.ph ?? '—'}`,
       data: {
@@ -229,7 +232,7 @@ function buildAnnotations(
 
     if (soil.layers.length > 1) {
       annotations.push({
-        pos: new THREE.Vector3(12, 5, 16),
+        pos: new THREE.Vector3(s * 0.8, 2, s),
         title: `Soil — ${deepLayer.depth_label}`,
         desc: `Clay: ${deepLayer.clay ?? '—'}% | Sand: ${deepLayer.sand ?? '—'}% | pH: ${deepLayer.ph ?? '—'}`,
         data: {
@@ -307,12 +310,18 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
 
     const controller = new AbortController();
 
-    // Fetch real data in parallel with engine init
-    const dataPromise = Promise.allSettled([
-      getWeather(lat, lon),
-      getSoil(lat, lon),
-      getElevation(lat, lon, farmRange),
-    ]);
+    // Fetch data — skip weather/soil if cropZones provided (already fetched by FarmAnalysis)
+    const dataPromise = cropZones && cropZones.length > 0
+      ? Promise.allSettled([
+          Promise.resolve(null),  // skip weather
+          Promise.resolve(null),  // skip soil
+          getElevation(lat, lon, farmRange),
+        ])
+      : Promise.allSettled([
+          getWeather(lat, lon),
+          getSoil(lat, lon),
+          getElevation(lat, lon, farmRange),
+        ]);
 
     try {
       const engine = new Engine({
@@ -466,7 +475,7 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
           for (const a of annotationDefs) {
             eng.annotations.addAnnotation(a.pos, a.title, a.desc, a.data);
             const marker = new THREE.Mesh(
-              new THREE.SphereGeometry(0.6, 16, 16),
+              new THREE.SphereGeometry(0.4, 8, 8),
               new THREE.MeshStandardMaterial({ color: a.color, emissive: a.color, emissiveIntensity: 0.3 }),
             );
             marker.position.copy(a.pos);
