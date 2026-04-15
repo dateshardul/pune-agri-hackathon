@@ -370,11 +370,17 @@ function PlantingTimeline({ events, cropPlans, highlightedCrop, onCropClick }: {
                       const color = PHASE_COLORS[cat] ?? bar.color;
                       const topY = rowIdx * rowHeight + 6;
                       const label = cat.replace(/_/g, ' ');
-                      const dateStr = bar.activities?.find(a => a.category === cat)?.date;
-                      const dateLabel = dateStr ? new Date(dateStr).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) : '';
+                      // Show date range (first → last) not just one date
+                      const catActivities = bar.activities?.filter(a => a.category === cat) ?? [];
+                      const firstDate = catActivities[0]?.date;
+                      const lastDate = catActivities[catActivities.length - 1]?.date;
+                      const fmt = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                      const dateLabel = firstDate && lastDate && firstDate !== lastDate
+                        ? `${fmt(firstDate)} – ${fmt(lastDate)}`
+                        : firstDate ? fmt(firstDate) : '';
 
                       return (
-                        <div key={cat} title={`${label}${dateLabel ? ` (${dateLabel})` : ''}`} style={{ position: 'absolute', top: topY, left: 0, right: 0, height: rowHeight }}>
+                        <div key={cat} title={`${label}: ${dateLabel}`} style={{ position: 'absolute', top: topY, left: 0, right: 0, height: rowHeight }}>
                           {/* Line segment */}
                           <div style={{
                             position: 'absolute',

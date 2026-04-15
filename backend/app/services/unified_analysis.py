@@ -495,21 +495,26 @@ def _assign_crop_zones(
             area_frac = 1.0
         elif n == 2:
             if i == 0:
-                ztype, elev_lo, elev_hi = "valley", elev_min, p66_elev
+                ztype = "lower region"
+                elev_lo, elev_hi = elev_min, p66_elev
             else:
-                ztype, elev_lo, elev_hi = "hilltop", p66_elev, elev_max
+                ztype = "upper region"
+                elev_lo, elev_hi = p66_elev, elev_max
             area_frac = 0.5
         elif n <= 3:
-            ztype, elev_lo, elev_hi = zone_templates[i]
+            zone_labels = ["lower region", "middle region", "upper region"]
+            ztype = zone_labels[i]
+            _, elev_lo, elev_hi = zone_templates[i]
             area_frac = 1.0 / n
         else:
-            # More than 3 crops: first goes to valley, last to hilltop, rest to slope
             if i == 0:
-                ztype, elev_lo, elev_hi = zone_templates[0]
+                ztype = "lower region"
+                _, elev_lo, elev_hi = zone_templates[0]
             elif i == n - 1:
-                ztype, elev_lo, elev_hi = zone_templates[2]
+                ztype = "upper region"
+                _, elev_lo, elev_hi = zone_templates[2]
             else:
-                ztype = "slope"
+                ztype = f"region {i + 1}"
                 slope_range = p66_elev - p33_elev
                 slope_crops = n - 2
                 slope_idx = i - 1
@@ -517,11 +522,11 @@ def _assign_crop_zones(
                 elev_hi = p33_elev + slope_range * (slope_idx + 1) / slope_crops
             area_frac = 1.0 / n
 
-        # Flood hazard override
-        reason = f"Water need {CROP_WATER_NEED.get(crop, 500)}mm — assigned to {ztype}"
-        if ztype == "valley" and has_flood_risk:
-            ztype = "slope"
-            reason += " (moved from valley due to flood risk >150mm/week)"
+        water_mm = CROP_WATER_NEED.get(crop, 500)
+        reason = f"{crop.capitalize()} needs {water_mm}mm water — placed in {ztype} ({round(elev_lo)}-{round(elev_hi)}m elevation)"
+        if ztype == "lower region" and has_flood_risk:
+            ztype = "middle region"
+            reason += " (moved from lower area due to flood risk >150mm/week)"
 
         zones[crop] = {
             "type": ztype,
