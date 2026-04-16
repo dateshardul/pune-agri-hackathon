@@ -461,38 +461,66 @@ export default function MapView({ lat, lon, simulationResult, cropZones, highlig
             });
           }
 
-          // ── Build annotations from fetched data ──
-          const annotationDefs = buildAnnotations(weather, soil, lat, lon);
-
-          // Register annotations layer with engine's annotation group
-          const annotGroup = eng.annotations.getGroup();
-          eng.layers.add({ name: 'Data Markers', visible: true, group: annotGroup });
-
-          // Create a separate layer for the colored sphere markers
-          const markerLayer = eng.layers.add({ name: 'Marker Spheres', visible: true });
-
-          // Use sprites for constant screen-size markers (don't scale with zoom)
-          const markerMeshes: THREE.Mesh[] = [];
-          for (const a of annotationDefs) {
-            eng.annotations.addAnnotation(a.pos, a.title, a.desc, a.data);
-            const marker = new THREE.Mesh(
-              new THREE.SphereGeometry(0.4, 8, 8),
-              new THREE.MeshStandardMaterial({ color: a.color, emissive: a.color, emissiveIntensity: 0.3 }),
-            );
-            marker.position.copy(a.pos);
-            markerLayer.group.add(marker);
-            markerMeshes.push(marker);
+          // ── Markers: only show when no crop zones (standalone terrain view) ──
+          if (!cropZones || cropZones.length === 0) {
+            const annotationDefs = buildAnnotations(weather, soil, lat, lon);
+            const annotGroup = eng.annotations.getGroup();
+            eng.layers.add({ name: 'Data Markers', visible: true, group: annotGroup });
+            const markerLayer = eng.layers.add({ name: 'Marker Spheres', visible: true });
+            const markerMeshes: THREE.Mesh[] = [];
+            for (const a of annotationDefs) {
+              eng.annotations.addAnnotation(a.pos, a.title, a.desc, a.data);
+              const marker = new THREE.Mesh(
+                new THREE.SphereGeometry(0.4, 8, 8),
+                new THREE.MeshStandardMaterial({ color: a.color, emissive: a.color, emissiveIntensity: 0.3 }),
+              );
+              marker.position.copy(a.pos);
+              markerLayer.group.add(marker);
+              markerMeshes.push(marker);
+            }
+            eng.onUpdate(() => {
+              const camPos = eng.camera.position;
+              for (const m of markerMeshes) {
+                const dist = camPos.distanceTo(m.position);
+                const scale = Math.max(0.3, dist / 80);
+                m.scale.setScalar(scale);
+              }
+            });
           }
 
-          // Scale markers + update compass with camera rotation
+          // ── Click on terrain → show lat/lon coordinates ──
+          const terrainSize = elevResult ? elevResult.width * 0.2 : 12.8;
+          const raycaster = new THREE.Raycaster();
+          const mouse = new THREE.Vector2();
+          const container = containerRef.current!;
+
+          const handleTerrainClick = (event: MouseEvent) => {
+            const rect = container.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, eng.camera);
+            const intersects = raycaster.intersectObject(terrain.mesh, false);
+            if (intersects.length > 0) {
+              const pt = intersects[0].point;
+              // Convert 3D position to lat/lon offset from center
+              const lonOffset = (pt.x / terrainSize) * 0.01; // approx degrees
+              const latOffset = -(pt.z / terrainSize) * 0.01;
+              const clickLat = lat + latOffset;
+              const clickLon = lon + lonOffset;
+              setSelectedAnnotation({
+                id: 'click',
+                position: pt,
+                title: 'Coordinates',
+                content: `${clickLat.toFixed(6)}°N, ${clickLon.toFixed(6)}°E`,
+                data: { type: 'click', lat: clickLat, lon: clickLon },
+              } as Annotation);
+            }
+          };
+          container.addEventListener('dblclick', handleTerrainClick);
+
+          // Compass rotation
           eng.onUpdate(() => {
             const camPos = eng.camera.position;
-            for (const m of markerMeshes) {
-              const dist = camPos.distanceTo(m.position);
-              const scale = Math.max(0.3, dist / 80);
-              m.scale.setScalar(scale);
-            }
-            // Compass: calculate camera azimuth angle
             const angle = Math.atan2(camPos.x, camPos.z) * (180 / Math.PI);
             setCompassAngle(angle);
           });
