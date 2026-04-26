@@ -44,6 +44,22 @@ function HelpTip({ text }: { text: string }) {
   );
 }
 
+// ── Land area unit conversion ───────────────────────────────────────
+type AreaUnit = 'ha' | 'acre' | 'sqm' | 'guntha';
+const AREA_UNITS: { value: AreaUnit; label: string; short: string; toHa: number }[] = [
+  { value: 'ha',     label: 'Hectares',      short: 'ha',     toHa: 1 },
+  { value: 'acre',   label: 'Acres',         short: 'acres',  toHa: 0.404686 },
+  { value: 'sqm',    label: 'Square meters', short: 'm²',     toHa: 0.0001 },
+  { value: 'guntha', label: 'Guntha',        short: 'guntha', toHa: 0.010117 },
+];
+function toHectares(value: number, unit: AreaUnit): number {
+  const u = AREA_UNITS.find(x => x.value === unit);
+  return value * (u?.toHa ?? 1);
+}
+function unitShort(unit: AreaUnit): string {
+  return AREA_UNITS.find(x => x.value === unit)?.short ?? unit;
+}
+
 // ── Date formatting helper ──────────────────────────────────────────
 function fmtDate(iso: string): string {
   try {
@@ -1081,6 +1097,7 @@ export default function FarmAnalysis() {
   const [lat, setLat] = useState(18.52);
   const [lon, setLon] = useState(73.85);
   const [fieldArea, setFieldArea] = useState(2.5);
+  const [areaUnit, setAreaUnit] = useState<'ha' | 'acre' | 'sqm' | 'guntha'>('ha');
   const [crops, setCrops] = useState<Record<string, string>>({});
 
   // Step 2: Environment data
@@ -1279,7 +1296,7 @@ export default function FarmAnalysis() {
 
     const req: FarmAnalysisRequest = {
       latitude: lat, longitude: lon, crops: cropsToRun,
-      field_area_ha: fieldArea,
+      field_area_ha: toHectares(fieldArea, areaUnit),
       ...(adjSowing !== 'auto' ? { preferred_sowing: adjSowing } : {}),
       ...(adjWater !== 1400 ? { water_budget_mm: adjWater } : {}),
     };
@@ -1408,8 +1425,16 @@ export default function FarmAnalysis() {
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               Field Area: <input type="number" step="0.1" min="0.1" value={fieldArea}
                 onChange={e => setFieldArea(parseFloat(e.target.value) || 0.1)}
-                style={{ width: 70, padding: '6px 8px', borderRadius: 6, border: '1px solid #ccc' }} />
-              <span style={{ color: '#666', fontSize: '0.85rem' }}>hectares</span>
+                style={{ width: 80, padding: '6px 8px', borderRadius: 6, border: '1px solid #ccc' }} />
+              <select value={areaUnit} onChange={e => setAreaUnit(e.target.value as AreaUnit)}
+                style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #ccc', fontSize: '0.9rem', background: '#fff' }}>
+                {AREA_UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+              </select>
+              {areaUnit !== 'ha' && (
+                <span style={{ color: '#888', fontSize: '0.78rem' }}>
+                  ≈ {toHectares(fieldArea, areaUnit).toFixed(3)} ha
+                </span>
+              )}
             </label>
           </div>
 
@@ -1433,7 +1458,7 @@ export default function FarmAnalysis() {
               padding: '4px 12px', fontSize: '0.8rem', cursor: 'pointer',
             }}>&larr; Back</button>
           </div>
-          <p>{lat.toFixed(5)}&deg;N, {lon.toFixed(5)}&deg;E &middot; {fieldArea} hectares</p>
+          <p>{lat.toFixed(5)}&deg;N, {lon.toFixed(5)}&deg;E &middot; {fieldArea} {unitShort(areaUnit)}</p>
 
           <div style={{ marginBottom: '1rem', borderRadius: 8, overflow: 'hidden' }}>
             <MapView lat={lat} lon={lon} simulationResult={null} />
@@ -1470,7 +1495,7 @@ export default function FarmAnalysis() {
                 padding: '4px 12px', fontSize: '0.8rem', cursor: 'pointer',
               }}>&larr; Change Location</button>
             </div>
-            <p style={{ color: '#666', margin: '0 0 1rem' }}>{lat.toFixed(5)}&deg;N, {lon.toFixed(5)}&deg;E &middot; {fieldArea} ha</p>
+            <p style={{ color: '#666', margin: '0 0 1rem' }}>{lat.toFixed(5)}&deg;N, {lon.toFixed(5)}&deg;E &middot; {fieldArea} {unitShort(areaUnit)}</p>
 
             <div style={{ marginBottom: '1rem', borderRadius: 8, overflow: 'hidden' }}>
               <MapView lat={lat} lon={lon} simulationResult={null} />
@@ -1658,7 +1683,7 @@ export default function FarmAnalysis() {
               }}>Download Report</button>
             </div>
             <div style={{ fontSize: '0.85rem', color: '#666' }}>
-              {selectedCrops.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')} &middot; {lat.toFixed(5)}&deg;N, {lon.toFixed(5)}&deg;E &middot; {fieldArea} ha
+              {selectedCrops.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')} &middot; {lat.toFixed(5)}&deg;N, {lon.toFixed(5)}&deg;E &middot; {fieldArea} {unitShort(areaUnit)}
             </div>
           </div>
 
@@ -1666,7 +1691,7 @@ export default function FarmAnalysis() {
           <div style={{ display: 'none' }} className="print-header">
             <h1 style={{ fontSize: '1.4rem', marginBottom: 4 }}>KrishiDisha Farm Analysis Report</h1>
             <p style={{ color: '#555', fontSize: '0.9rem', margin: 0 }}>
-              {selectedCrops.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')} &middot; {lat.toFixed(4)}&deg;N, {lon.toFixed(4)}&deg;E &middot; {fieldArea} ha &middot; Generated {new Date().toLocaleDateString()}
+              {selectedCrops.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')} &middot; {lat.toFixed(4)}&deg;N, {lon.toFixed(4)}&deg;E &middot; {fieldArea} {unitShort(areaUnit)} &middot; Generated {new Date().toLocaleDateString()}
             </p>
             <hr style={{ margin: '0.75rem 0', border: 'none', borderTop: '1px solid #ccc' }} />
           </div>
